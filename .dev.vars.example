@@ -1,0 +1,5 @@
+# Local testing only. Use independent random values, each at least 32 characters.
+ENGINE_ORIGIN=http://127.0.0.1:8000
+ALLOW_INSECURE_LOCAL_ENGINE=true
+ENGINE_API_KEY=
+SESSION_SIGNING_KEY=

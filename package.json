@@ -1,0 +1,16 @@
+{
+  "name": "revector-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "dev": "npm run build && wrangler dev --ip 127.0.0.1 --port 8787",
+    "test": "npm run build && node --test tests/*.test.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "wrangler": "4.40.2"
+  }
+}

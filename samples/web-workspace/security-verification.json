@@ -1,0 +1,12 @@
+{
+  "session_http_only": true,
+  "owner_header_spoof_blocked": true,
+  "project_isolation": true,
+  "artifact_isolation": true,
+  "job_isolation": true,
+  "cancellation_isolation": true,
+  "deletion_isolation": true,
+  "cross_origin_mutation_blocked": true,
+  "worker_source_private": true,
+  "credentials_absent_from_html": true
+}
