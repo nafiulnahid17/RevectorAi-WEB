@@ -188,7 +188,7 @@ function inputMain() {
           ? picture(state.project.thumbnail, "Uploaded artwork", "source-thumbnail")
           : `<div class="upload-icon">${icon("upload")}</div>`}
         <h2>${uploaded ? "Artwork Ready" : "Drop your artwork here"}</h2>
-        <p class="small muted">JPG, PNG, WEBP - Up to 50 MB</p>
+        <p class="small muted">JPG, PNG, WEBP • Up to 50 MB</p>
         ${uploaded
           ? `<div class="file-facts">
               <span><strong>File</strong>${escape(meta.filename)}</span>
@@ -878,7 +878,7 @@ function errorAssistant() {
     <section class="assistant-card">
       <header>
         <div>
-          <div class="assistant-title">${icon("spark")}<span><strong>ReVector Assistant</strong><small>AI Support - Error Detected</small></span></div>
+          <div class="assistant-title">${icon("spark")}<span><strong>ReVector Assistant</strong><small>AI Support • Error Detected</small></span></div>
         </div>
         <div class="row">
           ${btn("-", "assistant-no", "icon-button quiet", false, 'aria-label="Minimize assistant"')}
@@ -971,6 +971,14 @@ function footer() {
   return `<footer class="bottom-bar"><p class="small muted">${escape(message)}</p><div class="actions">${action}</div></footer>`;
 }
 
+function uploadStatusDialog() {
+  if (!(state.busy && state.operation === "Uploading Artwork")) return "";
+  return `<div class="upload-status-dialog" role="status" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <div><strong>Uploading Artwork...</strong><p>Preparing your file for processing.</p></div>
+  </div>`;
+}
+
 function render() {
   const p = state.project;
   const max = highestStep();
@@ -985,6 +993,7 @@ function render() {
     </header>
     ${connectionStatus()}
     ${connectionLost()}
+    ${uploadStatusDialog()}
     <nav class="stepper" aria-label="Processing workflow">
       ${stages
         .map(

@@ -249,9 +249,15 @@ async function confirmParts() {
     state.lastStageRequest = { name: "production", params: {} };
     state.job = job;
     render();
-    await pollJob(job);
-    state.step = ready() ? 5 : 4;
-    if (ready()) toast("Validation passed. Individual vector files are ready.");
+    try {
+      await pollJob(job);
+      state.step = ready() ? 5 : 4;
+      if (ready()) toast("Validation passed. Individual vector files are ready.");
+    } catch (error) {
+      const lastEvent = state.project?.events?.at?.(-1)?.event;
+      state.step = lastEvent === "VALIDATION_FAILED" ? 4 : 3;
+      throw error;
+    }
   });
 }
 

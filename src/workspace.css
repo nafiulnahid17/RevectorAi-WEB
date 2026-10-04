@@ -1864,3 +1864,37 @@ dialog pre {
     bottom: 92px;
   }
 }
+
+.upload-status-dialog {
+  position: fixed;
+  top: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  width: min(430px, calc(100vw - 28px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: white;
+  border: 1px solid #ded7ee;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 18px 50px rgba(32, 33, 45, 0.16);
+}
+.upload-status-dialog p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.upload-status-dialog .spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #d8cdf3;
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: revector-spin 1s linear infinite;
+  flex: 0 0 auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .upload-status-dialog .spinner { animation: none; }
+}

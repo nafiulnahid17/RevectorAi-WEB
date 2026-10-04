@@ -261,27 +261,34 @@ function aiEngineStatus(kind) {
   if (used)
     return {
       tone: kind === "fallback" ? "warning" : "success",
-      label: kind === "fallback" ? "Active - Fallback Used" : "Active",
+      label: kind === "fallback" ? "Degraded - Fallback Used" : "Active",
       detail: used.provider ? `${used.provider} - last successful ${label(used.operation)}` : "Successful provider response recorded",
     };
+
+  const explicit = caps[`${kind}_status`];
+  if (explicit === "active")
+    return { tone: "success", label: "Active", detail: "Provider connection verified by the engine." };
+  if (explicit === "degraded")
+    return { tone: "warning", label: "Degraded", detail: "Provider degradation reported by the engine." };
+  if (explicit === "error")
+    return { tone: "error", label: "Error", detail: "Provider-specific error reported by the engine." };
+
   const configured = kind === "primary" ? caps.primary_configured : caps.fallback_configured;
   const configErrors = Array.isArray(caps.configuration_errors) ? caps.configuration_errors : [];
-  if (configErrors.length)
-    return {
-      tone: "error",
-      label: "Error",
-      detail: "Provider configuration error reported by the engine.",
-    };
   if (configured)
     return {
       tone: "neutral",
       label: "Inactive",
-      detail: "Configured, but no successful provider request has been verified in this project.",
+      detail:
+        "Configured, but no successful provider request has been verified in this project." +
+        (configErrors.length ? " The engine also reports provider configuration warnings that are not attributable to this specific card." : ""),
     };
   return {
     tone: "neutral",
     label: "Inactive",
-    detail: "Not configured.",
+    detail:
+      "Not configured." +
+      (configErrors.length ? " The engine reports provider configuration warnings, but does not identify them as belonging to this specific engine." : ""),
   };
 }
 
