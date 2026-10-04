@@ -318,7 +318,17 @@ async function boot() {
     }
 
     const ready = await connectionReport();
-    if (!ready) return;
+    if (!ready) {
+      throw clientError(
+        "ENGINE_UNAVAILABLE",
+        state.connectionMessage || "ReVector is not ready yet.",
+        {
+          category: "network",
+          phase: "connection",
+          suggested_actions: ["refresh_connection", "view_error_details"],
+        },
+      );
+    }
 
     let savedProject;
     try {
@@ -364,6 +374,7 @@ async function boot() {
     }
     state.connectionMessage =
       failed === "server" ? "Server connection failed." : "Engine connection failed.";
+    presentError(error);
   } finally {
     state.initialBootstrap = false;
     state.connecting = false;
