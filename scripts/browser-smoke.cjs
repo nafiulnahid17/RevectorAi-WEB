@@ -81,7 +81,6 @@ const { execFileSync } = require("node:child_process");
   await page.locator("#file-input").setInputFiles(path.resolve("public/assets/sample-layout.png"));
   await page.getByText("Uploading Artwork...", { exact: true }).waitFor();
   await page.getByText("Preparing your file for processing.", { exact: true }).waitFor();
-  await page.unroute("**/api/revector/upload");
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor({ timeout: 120000 });
