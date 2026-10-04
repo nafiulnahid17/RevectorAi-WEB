@@ -2389,11 +2389,17 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
     display: none;
   }
 }
+.account-form > fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
 
 </style>
   </head>
   <body>
-    <div id="app"><div class="account-login admin-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Support & Operations Console</div><h1>Admin Sign In</h1><p class="muted">Authorized administrators and support staff only.</p><form class="account-form" data-account-form="admin-login"><label class="account-field"><span>Admin Email</span><input name="email" type="email" value="" required autocomplete="username"></label><label class="account-field"><span>Password</span><input name="password" type="password" value="" required autocomplete="current-password"></label><button class="primary" type="submit" >Sign In to Admin Console</button></form></section></div></div>
+    <div id="app"><div class="account-login admin-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Support & Operations Console</div><h1>Admin Sign In</h1><p class="muted">Authorized administrators and support staff only.</p><form class="account-form" data-account-form="admin-login"><fieldset ><label class="account-field"><span>Admin Email</span><input name="email" type="email" value="" required autocomplete="username"></label><label class="account-field"><span>Password</span><input name="password" type="password" value="" required autocomplete="current-password"></label><button class="primary" type="submit" >Sign In to Admin Console</button></fieldset></form></section></div></div>
     <input
       id="file-input"
       type="file"
@@ -3222,7 +3228,7 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
   var select = (label2, name, choices, value = "") => `<label class="account-field"><span>${label2}</span><select name="${name}">${choices.map(([key, label3]) => `<option value="${e(key)}" ${key === value ? "selected" : ""}>${e(label3)}</option>`).join("")}</select></label>`;
   var button = (label2, action, extra = "") => `<button type="button" data-account="${action}" ${extra}>${label2}</button>`;
   var submit = (label2) => `<button class="primary" type="submit" ${account.busy ? "disabled" : ""}>${account.busy ? "Saving\u2026" : label2}</button>`;
-  var form = (name, body, label2) => `<form class="account-form" data-account-form="${name}">${body}${submit(label2)}</form>`;
+  var form = (name, body, label2) => `<form class="account-form" data-account-form="${name}"><fieldset ${account.busy ? "disabled" : ""}>${body}${submit(label2)}</fieldset></form>`;
   var panel = (title, content) => `<section class="account-card"><h2>${title}</h2>${content}</section>`;
   var empty = (message) => `<div class="account-empty">${message}</div>`;
   function table(headers, rows) {

@@ -126,7 +126,11 @@ const { chromium } = require("playwright"),
           created_at: new Date().toISOString(),
         });
         data = { request: tickets.at(-1) };
-      } else data = { items: tickets };
+      } else {
+        // Exercise real loading states before forms become editable.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        data = { items: tickets };
+      }
     } else if (
       p === "/api/account/support/messages" ||
       p === "/api/admin/support/messages"

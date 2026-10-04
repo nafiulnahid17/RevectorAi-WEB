@@ -2389,6 +2389,12 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
     display: none;
   }
 }
+.account-form > fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
 
 </style>
   </head>
@@ -3347,7 +3353,7 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
   var select = (label2, name, choices, value = "") => `<label class="account-field"><span>${label2}</span><select name="${name}">${choices.map(([key, label3]) => `<option value="${e(key)}" ${key === value ? "selected" : ""}>${e(label3)}</option>`).join("")}</select></label>`;
   var button = (label2, action, extra = "") => `<button type="button" data-account="${action}" ${extra}>${label2}</button>`;
   var submit = (label2) => `<button class="primary" type="submit" ${account.busy ? "disabled" : ""}>${account.busy ? "Saving\u2026" : label2}</button>`;
-  var form = (name, body, label2) => `<form class="account-form" data-account-form="${name}">${body}${submit(label2)}</form>`;
+  var form = (name, body, label2) => `<form class="account-form" data-account-form="${name}"><fieldset ${account.busy ? "disabled" : ""}>${body}${submit(label2)}</fieldset></form>`;
   var panel = (title, content) => `<section class="account-card"><h2>${title}</h2>${content}</section>`;
   var empty = (message) => `<div class="account-empty">${message}</div>`;
   function table(headers, rows) {

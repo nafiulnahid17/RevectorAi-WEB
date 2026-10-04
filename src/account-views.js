@@ -23,7 +23,7 @@ const button = (label, action, extra = "") =>
 const submit = (label) =>
   `<button class="primary" type="submit" ${account.busy ? "disabled" : ""}>${account.busy ? "Saving…" : label}</button>`;
 const form = (name, body, label) =>
-  `<form class="account-form" data-account-form="${name}">${body}${submit(label)}</form>`;
+  `<form class="account-form" data-account-form="${name}"><fieldset ${account.busy ? "disabled" : ""}>${body}${submit(label)}</fieldset></form>`;
 const panel = (title, content) =>
   `<section class="account-card"><h2>${title}</h2>${content}</section>`;
 const empty = (message) => `<div class="account-empty">${message}</div>`;
