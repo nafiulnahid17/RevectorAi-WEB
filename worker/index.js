@@ -5,13 +5,13 @@ const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const MAX_UPLOAD = 51 * 1024 * 1024;
 const UUID = "[a-f0-9-]{36}";
 const ROUTES = [
-  ["POST", /^\\/api\\/revector\\/(projects|upload|analyze|correct-geometry|segment|reconstruct|vectorize|optimize|compose|validate|export|parts\\/actions|prepare|production|recover-part|ai-missing|review\\/confirm|slots\\/update|assistant\\/explain|assistant\\/feedback)$/],
-  ["GET", /^\\/api\\/revector\\/(capabilities\\/ai|error-catalog)$/],
+  ["POST", new RegExp("^/api/revector/(projects|upload|analyze|correct-geometry|segment|reconstruct|vectorize|optimize|compose|validate|export|parts/actions|prepare|production|recover-part|ai-missing|review/confirm|slots/update|assistant/explain|assistant/feedback)$")],
+  ["GET", new RegExp("^/api/revector/(capabilities/ai|error-catalog)$")],
   ["GET", new RegExp(`^/api/revector/projects/${UUID}(?:/(?:status|parts|validation|exports|events|errors))?$`)],
   ["GET", new RegExp(`^/api/revector/projects/${UUID}/artifacts/[^\\\\]+$`)],
   ["DELETE", new RegExp(`^/api/revector/projects/${UUID}$`)],
   ["PUT", new RegExp(`^/api/revector/projects/${UUID}/settings$`)],
-  ["POST", /^\\/api\\/revector\\/segments\\/[A-Za-z0-9_]+\\/(confirm|update|vector-edit)$/],
+  ["POST", new RegExp("^/api/revector/segments/[A-Za-z0-9_]+/(confirm|update|vector-edit)$")],
   ["GET", new RegExp(`^/api/revector/jobs/${UUID}$`)],
   ["POST", new RegExp(`^/api/revector/jobs/${UUID}/cancel$`)],
 ];
