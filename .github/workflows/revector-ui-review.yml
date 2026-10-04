@@ -1,0 +1,35 @@
+name: ReVector UI Review
+
+on:
+  push:
+    branches:
+      - revector-ui-ux-upgrade-20261004
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Syntax checks
+        run: npm run check
+      - name: Unit and build tests
+        run: npm test
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Standalone browser preview smoke
+        env:
+          CHROMIUM_PATH: /home/runner/.cache/ms-playwright/chromium-1187/chrome-linux/chrome
+        run: |
+          CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
+          CHROMIUM_PATH="$CHROME" node scripts/browser-preview-smoke.cjs

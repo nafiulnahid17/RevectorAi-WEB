@@ -14,7 +14,7 @@ const http = require("node:http");
     const restricted = await browser.newPage({ javaScriptEnabled: false });
     await restricted.setContent(html);
     await restricted
-      .getByRole("heading", { name: "Input artwork", exact: true })
+      .getByRole("heading", { name: "Upload Artwork", exact: true })
       .waitFor();
     assert.equal(
       await restricted
@@ -46,7 +46,7 @@ const http = require("node:http");
     );
     assert.equal(
       await page
-        .getByRole("button", { name: "Choose file", exact: true })
+        .getByRole("button", { name: "Choose Artwork", exact: true })
         .isEnabled(),
       false,
     );
@@ -107,7 +107,7 @@ const http = require("node:http");
       waitUntil: "domcontentloaded",
     });
     await page
-      .getByRole("heading", { name: "Input artwork", exact: true })
+      .getByRole("heading", { name: "Upload Artwork", exact: true })
       .waitFor({ timeout: 1500 });
     assert.equal(await page.getByRole("button", { name: /Retry/ }).count(), 0);
     await page
@@ -149,7 +149,7 @@ const http = require("node:http");
     assert.equal(await page.getByRole("button", { name: /Retry/ }).count(), 0);
     assert.equal(
       await page
-        .getByRole("button", { name: "Choose file", exact: true })
+        .getByRole("button", { name: "Choose Artwork", exact: true })
         .isEnabled(),
       true,
     );

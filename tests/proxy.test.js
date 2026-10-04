@@ -65,3 +65,45 @@ test('protected SVG artifact sandbox policy is preserved', async () => {
   const response = await handle(req('/api/revector/projects/11111111-1111-1111-1111-111111111111/artifacts/exports/master.svg'), env, async () => new Response('<svg/>', { headers: { 'content-security-policy': "sandbox; default-src 'none'", 'content-type': 'image/svg+xml' } }));
   assert.equal(response.headers.get('content-security-policy'), "sandbox; default-src 'none'");
 });
+
+
+test('approved engine orchestration and assistant routes are allowlisted through the secured gateway', async () => {
+  const cases = [
+    ['GET', '/api/revector/capabilities/ai'],
+    ['GET', '/api/revector/error-catalog'],
+    ['POST', '/api/revector/prepare'],
+    ['POST', '/api/revector/production'],
+    ['POST', '/api/revector/recover-part'],
+    ['POST', '/api/revector/ai-missing'],
+    ['POST', '/api/revector/review/confirm'],
+    ['POST', '/api/revector/slots/update'],
+    ['GET', '/api/revector/projects/11111111-1111-1111-1111-111111111111/events'],
+    ['GET', '/api/revector/projects/11111111-1111-1111-1111-111111111111/errors'],
+    ['POST', '/api/revector/assistant/explain'],
+    ['POST', '/api/revector/assistant/feedback'],
+  ];
+  for (const [method, path] of cases) {
+    const init = { method, headers: {} };
+    if (method !== 'GET') {
+      init.headers.origin = 'https://web.example';
+      init.headers['content-type'] = 'application/json';
+      init.body = JSON.stringify({ project_id: '11111111-1111-1111-1111-111111111111' });
+    }
+    const response = await handle(req(path, init), env, async (upstream) => {
+      assert.equal(upstream.headers.get('authorization'), 'Bearer ' + env.ENGINE_API_KEY);
+      assert.match(upstream.headers.get('x-revector-user'), /^anon_[a-f0-9]{32}$/);
+      return Response.json({ proxied: true });
+    });
+    assert.equal(response.status, 200, method + ' ' + path);
+  }
+});
+
+test('unapproved recovery-like routes remain blocked', async () => {
+  const never = () => assert.fail('Unapproved route must not reach engine');
+  const response = await handle(req('/api/revector/resume-job', {
+    method: 'POST',
+    headers: { origin: 'https://web.example', 'content-type': 'application/json' },
+    body: '{}'
+  }), env, never);
+  assert.equal(response.status, 404);
+});

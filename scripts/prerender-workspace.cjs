@@ -21,6 +21,6 @@ vm.runInNewContext(
   },
   { timeout: 5000 },
 );
-if (!app.innerHTML.includes("Input artwork"))
+if (!app.innerHTML.includes("Upload Artwork"))
   throw new Error("Initial workspace did not render");
 process.stdout.write(app.innerHTML);
