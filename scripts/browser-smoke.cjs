@@ -261,17 +261,17 @@ const { execFileSync } = require("node:child_process");
     "Offline state should produce one short error voice",
   );
 
+  await page.getByRole("button", { name: "Yes, Help Me", exact: true }).click();
+  await page.locator(".assistant-guidance").waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "Retry Connection", exact: true }).count() > 0,
+    true,
+    "Offline assistant should expose the supported reconnect action",
+  );
   await page.getByRole("button", { name: "No", exact: true }).click();
   assert.equal(await page.locator(".assistant-card").count(), 0);
   await context.setOffline(false);
   await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30000 });
-
-  const assistantPill = page.locator(".assistant-pill");
-  if (await assistantPill.count()) {
-    await assistantPill.click();
-    await page.getByRole("button", { name: "Yes, Help Me", exact: true }).click();
-    await page.locator(".assistant-guidance").waitFor({ timeout: 30000 });
-  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: path.join(out, "02-mobile.png"), fullPage: true });
