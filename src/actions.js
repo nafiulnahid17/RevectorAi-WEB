@@ -243,6 +243,10 @@ async function confirmParts() {
       project_id: state.project.project_id,
       decisions,
     });
+    // The review endpoint has now committed the eight-slot decisions and the
+    // returned job is the real production job. A later retry_stage must resume
+    // production, not repeat the review transaction.
+    state.lastStageRequest = { name: "production", params: {} };
     state.job = job;
     render();
     await pollJob(job);
@@ -702,6 +706,12 @@ async function handle(action, target) {
       break;
     case "apply-fill":
       await applyFill();
+      break;
+    case "recover-selected":
+      await executeRecovery("retry_part");
+      break;
+    case "recover-selected-fallback":
+      await executeRecovery("use_fallback_trace");
       break;
     case "report":
       showReport();

@@ -593,6 +593,14 @@ function vectorControls() {
       ${pp && vectorPartReady(pp) ? badge("Real SVG Objects", "purple") : badge("Unavailable")}
     </div>
     <p class="small muted">Select a real shape in Vector View. Fill edits are sent to the engine using the SVG shape ID, then revalidated.</p>
+    ${pp?.error ? `<div class="note error">
+      <strong>Vectorization Failed</strong><br>
+      ${escape(pp.error.message || "The selected part needs isolated recovery.")}
+      <div class="row wrap recovery-buttons">
+        ${btn("Retry Failed Part", "recover-selected", "primary", false)}
+        ${btn("Use Fallback Trace", "recover-selected-fallback", "quiet", false)}
+      </div>
+    </div>` : ""}
     <div class="selected-shape-box">
       <span class="small muted">Selected Shape</span>
       <strong id="shape-label">${escape(state.shape || "None")}</strong>
