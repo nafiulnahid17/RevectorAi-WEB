@@ -374,7 +374,26 @@ async function boot() {
     }
     state.connectionMessage =
       failed === "server" ? "Server connection failed." : "Engine connection failed.";
-    presentError(error);
+    state.error = {
+      error_id: error?.error_id || null,
+      error_code: error?.error_code || error?.code || "ENGINE_UNAVAILABLE",
+      code: error?.code || "ENGINE_UNAVAILABLE",
+      category: error?.category || "network",
+      phase: error?.phase || "connection",
+      message:
+        error?.message ||
+        (failed === "server"
+          ? "Server connection failed."
+          : "Engine connection failed."),
+      technical_summary: error?.technical_summary || "",
+      retryable: error?.retryable ?? true,
+      recoverable: error?.recoverable ?? true,
+      suggested_actions:
+        error?.suggested_actions || ["refresh_connection", "view_error_details"],
+    };
+    state.assistantAdvice = null;
+    state.assistantOpen = false;
+    state.assistantMinimized = false;
   } finally {
     state.initialBootstrap = false;
     state.connecting = false;
