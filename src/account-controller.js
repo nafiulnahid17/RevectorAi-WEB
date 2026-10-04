@@ -163,7 +163,7 @@ export async function loadAccountPage() {
     }
     if (!account.profile) return;
     const pages = {
-      dashboard: ["wallet", "usage"],
+      dashboard: ["wallet", "usage", "models", "preferences"],
       balance: ["wallet", "transactions"],
       "add-credits": ["requests"],
       usage: ["usage"],

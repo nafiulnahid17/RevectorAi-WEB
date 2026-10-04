@@ -35,14 +35,16 @@ function table(headers, rows) {
 const badge = (status) =>
   `<span class="account-badge">${e(status || "—")}</span>`;
 export function profileMenu() {
-  return `<div class="profile-control">${button(account.profile ? e((account.profile.name || account.profile.email).slice(0, 2).toUpperCase()) : "◎", "menu", 'class="avatar-button" aria-label="Open profile menu" aria-expanded="' + account.menu + '"')}${account.menu ? `<div class="profile-dropdown"><strong>${e(account.profile?.name || "Your account")}</strong><small>${e(account.profile?.email || "ReVector account services")}</small>${userPages.map(([route, label]) => `<a href="/dashboard/${route}" data-account="nav">${label}</a>`).join("")}${account.profile ? button("Sign Out", "logout") : button("Sign In", "nav", 'data-url="/login"')}</div>` : ""}</div>`;
+  const wallet = account.data.wallet?.items?.[0];
+  return `<div class="profile-control">${button(account.profile ? e((account.profile.name || account.profile.email).slice(0, 2).toUpperCase()) : "◎", "menu", 'class="avatar-button" aria-label="Open profile menu" aria-expanded="' + account.menu + '"')}${account.menu ? `<div class="profile-dropdown"><strong>${e(account.profile?.name || "Your account")}</strong><small>${e(account.profile?.email || "ReVector account services")}</small>${account.profile ? `<small>${e(account.profile.status)}</small>` : ""}${wallet ? `<small>${money(wallet.current_credit_balance)} credits</small>` : ""}${userPages.map(([route, label]) => `<a href="/dashboard/${route}" data-account="nav">${label}</a>`).join("")}${account.profile ? button("Sign Out", "logout") : button("Sign In", "nav", 'data-url="/login"')}</div>` : ""}</div>`;
 }
 function login(admin) {
   return `<div class="account-login ${admin ? "admin-login" : ""}"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">${admin ? "Support & Operations Console" : "Invite-only account"}</div><h1>${admin ? "Admin Sign In" : "Welcome to ReVector"}</h1><p class="muted">${admin ? "Authorized administrators and support staff only." : "Sign in with your invited account to access your production workspace."}</p>${account.configured === false ? empty("Account services are not configured. Contact the owner to enable Supabase Auth.") : form(admin ? "admin-login" : "login", field(admin ? "Admin Email" : "Email", "email", "email", "", 'required autocomplete="username"') + field("Password", "password", "password", "", 'required autocomplete="current-password"'), admin ? "Sign In to Admin Console" : "Sign In")}${account.error ? `<p role="alert" class="account-error">${e(account.error)}</p>` : ""}${!admin ? '<a href="/" data-account="nav">Return to production workspace</a>' : ""}</section></div>`;
 }
-function usage(items) {
+function usage(items, admin = false) {
   return table(
     [
+      ...(admin ? ["User"] : []),
       "Operation / Project",
       "Provider / Model",
       "Mode / Status",
@@ -53,6 +55,7 @@ function usage(items) {
     items
       .filter((v) => v.status !== "RESERVED")
       .map((v) => [
+        ...(admin ? [e(v.user_id)] : []),
         `${e(v.operation)}<small>${e(v.project_id || "No project")}</small>`,
         `${e(v.provider || "Not reported")}<small>${e(v.model || "Not reported")}</small>`,
         `${badge(v.processing_mode)} ${badge(v.status)}`,
@@ -81,15 +84,15 @@ function ledger(items) {
 function tickets(items, admin = false) {
   return table(
     admin
-      ? ["User", "Subject / Priority", "Status", "Updated", ""]
+      ? ["User", "Subject / Category / Priority", "Status", "Created", ""]
       : ["Subject / Category", "Status", "Reply", "Updated", ""],
     items.map((v) =>
       admin
         ? [
             `${e(v.revector_profiles?.name || v.user_id)}<small>${e(v.revector_profiles?.email || "")}</small>`,
-            `${e(v.subject)}<small>${e(v.payload?.priority || "NORMAL")}</small>`,
+            `${e(v.subject)}<small>${e(v.category || "OTHER")} · ${e(v.payload?.priority || "NORMAL")}</small>`,
             badge(v.status),
-            date(v.updated_at),
+            date(v.created_at),
             button("Open", "ticket", `data-id="${e(v.id)}"`),
           ]
         : [
@@ -139,7 +142,12 @@ function userContent(page) {
       empty("Sign in to view your private account data.") +
       button("Sign In", "nav", 'data-url="/login"')
     );
-  if (page === "dashboard")
+  if (page === "dashboard") {
+    const pref = d.preferences?.items?.[0];
+    const preferenceName = (id) => !d.preferences || !d.models
+      ? "Loading…"
+      : !id ? "Auto — engine routing"
+      : models.find((m) => m.id === id)?.display_name || "Unavailable catalog model";
     return (
       `<div class="account-metrics">${[
         [
@@ -162,13 +170,18 @@ function userContent(page) {
         "Welcome, " + e(p.name || p.email),
         '<p>Your account controls are separate from the production workflow. Model preferences are requests; actual provider usage appears in Usage.</p><a class="button primary" href="/" data-account="nav">Open Production Workspace</a>',
       ) +
+      panel(
+        "Preferred Models",
+        `<p>Analyzer: ${e(preferenceName(pref?.analyzer_model_id))}</p><p>Image: ${e(preferenceName(pref?.image_model_id))}</p><p class="muted">Preferences guide requests. Actual provider/model execution appears in Usage.</p><a href="/dashboard/models" data-account="nav">Select Models</a>`,
+      ) +
       panel("Recent Usage", usage(d.usage?.items || []))
     );
+  }
   if (page === "profile")
     return (
       panel(
         "Profile",
-        form(
+        `<p class="muted">Status: ${e(p.status)}${p.created_at ? ` · Created ${date(p.created_at)}` : ""}</p>` + form(
           "profile",
           field("Name", "name", "text", p.name, 'maxlength="120"') +
             field("Email", "email", "email", p.email, "disabled") +
@@ -485,7 +498,7 @@ function adminContent(page) {
           )
         : "")
     );
-  if (page === "usage") return panel("Global Usage", usage(items));
+  if (page === "usage") return panel("Global Usage", usage(items, true));
   if (page === "support")
     return conversation(true) + panel("Support Inbox", tickets(items, true));
   if (page === "audit")
