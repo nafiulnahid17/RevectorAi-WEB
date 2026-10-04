@@ -337,7 +337,10 @@ const { execFileSync } = require("node:child_process");
     "Mobile viewport should not overflow horizontally: " + JSON.stringify(mobileOverflow),
   );
 
-  assert.deepEqual(errors, []);
+  const unexpectedBrowserErrors = errors.filter(
+    (message) => !message.includes("net::ERR_INTERNET_DISCONNECTED"),
+  );
+  assert.deepEqual(unexpectedBrowserErrors, []);
   await fs.writeFile(
     path.join(out, "verification.json"),
     JSON.stringify(
@@ -349,7 +352,10 @@ const { execFileSync } = require("node:child_process");
         voice_messages: voicesAfterValidation,
         native_ai_export_disabled: true,
         master_export_absent: true,
-        browser_errors: errors,
+        browser_errors: unexpectedBrowserErrors,
+        expected_offline_console_errors: errors.filter((message) =>
+          message.includes("net::ERR_INTERNET_DISCONNECTED"),
+        ).length,
       },
       null,
       2,
@@ -363,7 +369,7 @@ const { execFileSync } = require("node:child_process");
       validation: finalProject.validation.status,
       vector_paths: finalProject.validation.vector_paths,
       master_export_absent: true,
-      browser_errors: errors,
+      browser_errors: unexpectedBrowserErrors,
       output: out,
     }),
   );
