@@ -214,28 +214,6 @@ function isNetworkInterruption(error) {
   );
 }
 
-async function waitForConnection() {
-  state.networkOnline = typeof navigator === "undefined" ? true : navigator.onLine;
-  state.reconnecting = true;
-  render();
-  while (true) {
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      continue;
-    }
-    try {
-      const server = await request("/health", { timeoutMs: 5000 });
-      if (server?.status === "ok" && server?.engine === "ReVector") break;
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
-  state.networkOnline = true;
-  state.reconnecting = false;
-  state.error = null;
-  state.assistantAdvice = null;
-  render();
-}
-
 async function pollJob(jobOrId, { renderStart = false } = {}) {
   let job =
     typeof jobOrId === "string"
@@ -271,9 +249,9 @@ async function pollJob(jobOrId, { renderStart = false } = {}) {
       };
       state.assistantAdvice = localAdvice(state.error);
       state.assistantOpen = true;
+      persistActiveJob();
       render();
-      await waitForConnection();
-      continue;
+      throw error;
     }
   }
 

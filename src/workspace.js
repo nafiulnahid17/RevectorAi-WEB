@@ -259,7 +259,24 @@ async function reconnectOnly() {
     const ready = await connectionReport();
     state.networkOnline = true;
     state.reconnecting = false;
+    state.error = null;
     render();
+    if (ready && !state.busy) {
+      const stored = loadActiveJob();
+      const active =
+        state.job?.job_id && !["SUCCEEDED", "FAILED", "CANCELLED"].includes(state.job.job_state)
+          ? {
+              job_id: state.job.job_id,
+              project_id: state.job.project_id || state.project?.project_id,
+              stage: state.job.stage,
+              process_event: state.job.process_event || null,
+            }
+          : stored;
+      if (active?.job_id && active?.project_id) {
+        await resumeStoredJob(active);
+        state.step = stepFromProject();
+      }
+    }
     return ready;
   } catch (error) {
     state.reconnecting = false;
