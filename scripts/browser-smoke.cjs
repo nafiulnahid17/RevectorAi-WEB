@@ -70,7 +70,18 @@ const { execFileSync } = require("node:child_process");
     "Welcome voice should run once after a real successful boot",
   );
 
+  let uploadDelayed = true;
+  await page.route("**/api/revector/upload", async (route) => {
+    if (uploadDelayed) {
+      uploadDelayed = false;
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+    await route.continue();
+  });
   await page.locator("#file-input").setInputFiles(path.resolve("public/assets/sample-layout.png"));
+  await page.getByText("Uploading Artwork...", { exact: true }).waitFor();
+  await page.getByText("Preparing your file for processing.", { exact: true }).waitFor();
+  await page.unroute("**/api/revector/upload");
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor({ timeout: 120000 });
@@ -245,6 +256,10 @@ const { execFileSync } = require("node:child_process");
   const selectedDownload = await selectedDownloadPromise;
   const selectedPath = path.join(out, "selected-part.svg");
   await selectedDownload.saveAs(selectedPath);
+  await page.waitForFunction(() => {
+    const button = document.querySelector('[data-action="download-selected"]');
+    return button && !button.disabled;
+  });
   const svg = await fs.readFile(selectedPath, "utf8");
   assert.ok(/<svg\b/.test(svg));
   assert.ok(!/<(?:\w+:)?image\b|data:image\//i.test(svg));
@@ -255,6 +270,10 @@ const { execFileSync } = require("node:child_process");
   const pack = await packPromise;
   const packPath = path.join(out, "production-pack.zip");
   await pack.saveAs(packPath);
+  await page.waitForFunction(() => {
+    const button = document.querySelector('[data-action="download-pack"]');
+    return button && !button.disabled;
+  });
   const listing = execFileSync("unzip", ["-l", packPath], { encoding: "utf8" });
   assert.doesNotMatch(listing, /master\.(svg|pdf|eps|png)/i);
   assert.doesNotMatch(listing, /assembled/i);
