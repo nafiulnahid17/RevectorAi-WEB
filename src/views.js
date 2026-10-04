@@ -54,6 +54,48 @@ function aiStatusCard(kind, title) {
   </div>`;
 }
 
+function connectionDisplay(key) {
+  const status = state.connections[key] || "pending";
+  const word =
+    status === "connected"
+      ? "Connected"
+      : status === "failed"
+        ? "Failed"
+        : status === "waiting"
+          ? "Waiting"
+          : "Connecting";
+  return { status, word };
+}
+
+function uploadHeaderConnectionCard(key, title) {
+  const current = connectionDisplay(key);
+  return `<div class="upload-header-card connection-segment ${current.status}" data-connection="${key}">
+    <span class="upload-header-icon status-light" aria-hidden="true"></span>
+    <span class="upload-header-copy"><strong>${escape(title)}</strong><small>${escape(current.word)}</small></span>
+    ${current.status === "failed"
+      ? btn("Retry", "retry-connection", "connection-retry", false, `data-segment="${key}" aria-label="Retry ${key} connection"`)
+      : ""}
+  </div>`;
+}
+
+function uploadHeaderAiCard(kind, title) {
+  const status = aiEngineStatus(kind);
+  return `<div class="upload-header-card ai ${status.tone}">
+    <span class="upload-ai-symbol" aria-hidden="true">${icon(kind === "primary" ? "spark" : "refresh")}</span>
+    <span class="upload-header-copy"><strong>${escape(title)}</strong><small title="${escape(status.detail)}">${escape(status.label)}</small></span>
+  </div>`;
+}
+
+function uploadHeaderStatuses() {
+  return `<div class="upload-header-statuses" aria-label="Live system status">
+    ${uploadHeaderConnectionCard("server", "Server")}
+    ${uploadHeaderConnectionCard("engine", "Engine")}
+    ${uploadHeaderConnectionCard("tool", "Tool")}
+    ${uploadHeaderAiCard("primary", "Primary AI")}
+    ${uploadHeaderAiCard("fallback", "Fallback AI")}
+  </div>`;
+}
+
 function settingsPanel() {
   const p = state.project;
   const current = presetUiName(state.preset);
@@ -175,43 +217,133 @@ function sourceMeta() {
   };
 }
 
+function uploadStrategyCard(value, title, subtitle, iconName) {
+  const selected = state.preset === value;
+  return `<button class="upload-strategy-card ${selected ? "selected" : ""}" data-action="preset" data-value="${value}" aria-pressed="${selected}">
+    <span class="upload-strategy-icon">${icon(iconName)}</span>
+    <strong>${escape(title)}</strong>
+    <small>${escape(subtitle)}</small>
+  </button>`;
+}
+
+function fileTypeFromName(filename) {
+  const match = String(filename || "").match(/\.([a-z0-9]+)$/i);
+  return match ? match[1].toUpperCase() : "Unavailable";
+}
+
+function uploadFileCard(meta) {
+  const p = state.project;
+  if (!p?.source_file) return "";
+  return `<section class="upload-file-card">
+    <div class="upload-file-thumb">
+      ${p.thumbnail
+        ? picture(p.thumbnail, "Uploaded artwork")
+        : `<div class="upload-empty-thumb">${icon("file")}</div>`}
+    </div>
+    <div class="upload-file-copy">
+      <strong>${escape(meta.filename)}</strong>
+      <p>${escape(meta.size)}${meta.dimensions !== "Dimensions unavailable" ? ` • ${escape(meta.dimensions)}` : ""}</p>
+      <span class="upload-file-ready">${icon("check")} Artwork uploaded</span>
+      <div class="upload-file-actions">
+        ${btn(icon("refresh") + " Replace", "upload", "primary", !state.health)}
+        ${btn("Use Template", "noop", "", true, 'title="Available Soon"')}
+        ${btn("Use Existing Image", "noop", "", true, 'title="Available Soon"')}
+        ${btn(icon("trash"), "delete-artwork", "icon-button danger", false, 'aria-label="Delete Artwork"')}
+      </div>
+    </div>
+  </section>`;
+}
+
 function inputMain() {
   const uploaded = Boolean(state.project?.source_file);
   const meta = sourceMeta();
-  return `<main class="main-column">
-    <section class="card stack upload-card">
+  return `<main class="main-column upload-reference-main">
+    <section class="upload-hero-copy">
       <div>
-        <div class="section-kicker">Source</div>
-        <h2>Upload Artwork</h2>
-        <p class="muted">Upload a jersey photo or flat artwork. ReVector keeps AI references separate from final vector geometry.</p>
+        <span class="upload-step-label">Step 1 of 8</span>
+        <h1>Upload Your Jersey Artwork</h1>
+        <p>Start by uploading a jersey image or design file. ReVector will prepare the real source for analysis and vectorization.</p>
       </div>
-      <div class="dropzone ${uploaded ? "has-artwork" : ""}" id="dropzone">
-        ${uploaded && state.project?.thumbnail
-          ? picture(state.project.thumbnail, "Uploaded artwork", "source-thumbnail")
-          : `<div class="upload-icon">${icon("upload")}</div>`}
-        <h2>${uploaded ? "Artwork Ready" : "Drop your artwork here"}</h2>
-        <p class="small muted">JPG, PNG, WEBP • Up to 50 MB</p>
-        ${uploaded
-          ? `<div class="file-facts">
-              <span><strong>File</strong>${escape(meta.filename)}</span>
-              <span><strong>Size</strong>${escape(meta.size)}</span>
-              <span><strong>Dimensions</strong>${escape(meta.dimensions)}</span>
-            </div>
-            <div class="row wrap upload-actions">
-              ${btn("Replace", "upload", "primary", !state.health)}
-              ${btn("Use Template", "noop", "", true, 'title="Available Soon"')}
-              ${btn("Use Existing Image", "noop", "", true, 'title="Available Soon"')}
-              ${btn(icon("trash") + " Delete Artwork", "delete-artwork", "quiet danger")}
-            </div>`
-          : `<div class="row wrap upload-actions">
-              ${btn(icon("upload") + " Choose Artwork", "upload", "primary", !state.health)}
-              ${btn("Use Template", "noop", "", true, 'title="Available Soon"')}
-              ${btn("Use Existing Image", "noop", "", true, 'title="Available Soon"')}
-            </div>`}
+      <button class="upload-template-card" disabled title="Available Soon">
+        <span class="upload-template-icon">${icon("file")}</span>
+        <span><strong>Need a template?</strong><small>Available Soon</small></span>
+        <span aria-hidden="true">›</span>
+      </button>
+    </section>
+
+    <section class="upload-reference-card">
+      <div class="dropzone upload-reference-dropzone ${uploaded ? "has-artwork" : ""}" id="dropzone">
+        <div class="upload-reference-icon">${icon("upload")}</div>
+        <h2>${uploaded ? "Upload another jersey artwork" : "Drag & drop your jersey artwork here"}</h2>
+        <p>or click to browse files</p>
+        <div class="upload-format-chips" aria-label="Supported upload formats">
+          <span>PNG</span><span>JPG</span><span>JPEG</span><span>WEBP</span>
+        </div>
+        <small>Maximum file size: 50 MB • High-resolution images recommended</small>
+        ${btn(icon("upload") + " Choose Artwork", "upload", "upload-browse-button", !state.health)}
       </div>
     </section>
+
+    ${uploadFileCard(meta)}
     ${requirements()}
   </main>`;
+}
+
+function uploadSetupPanel() {
+  const p = state.project;
+  const uploaded = Boolean(p?.source_file);
+  const meta = sourceMeta();
+  const artName = p?.name || state.projectName || "";
+  return `<aside class="upload-setup-panel">
+    <section class="upload-setup-section">
+      <div class="upload-panel-heading"><span>Artwork Setup</span><span title="Values shown here come from the current workspace.">ⓘ</span></div>
+      <label class="upload-field">Art Name
+        <input name="project-name" type="text" value="${escape(artName)}" placeholder="Enter artwork name" maxlength="120" ${p ? 'readonly aria-readonly="true"' : ""} ${state.busy ? "disabled" : ""}>
+      </label>
+      <div class="upload-field-label">Vector Strategy</div>
+      <div class="upload-strategy-grid">
+        ${uploadStrategyCard("BALANCED", "Balanced", "Recommended", "file")}
+        ${uploadStrategyCard("FAST", "Clean", "Simpler vectors", "spark")}
+        ${uploadStrategyCard("ULTRA", "Detailed", "Maximum accuracy", "settings")}
+      </div>
+    </section>
+
+    <section class="upload-setup-section">
+      <div class="upload-panel-heading"><span>Source Preview</span></div>
+      <div class="upload-source-preview ${uploaded ? "has-source" : ""}">
+        ${uploaded && p?.thumbnail
+          ? picture(p.thumbnail, "Source preview")
+          : `<div class="upload-source-empty">${icon("file")}<span>Preview appears after a real upload</span></div>`}
+      </div>
+    </section>
+
+    <section class="upload-setup-section upload-file-info">
+      <div class="upload-panel-heading"><span>File Information</span><span aria-hidden="true">⌄</span></div>
+      <div class="upload-info-row"><span>${icon("file")} File Name</span><strong>${escape(uploaded ? meta.filename : "Unavailable")}</strong></div>
+      <div class="upload-info-row"><span>${icon("file")} File Size</span><strong>${escape(uploaded ? meta.size : "Unavailable")}</strong></div>
+      <div class="upload-info-row"><span>${icon("ruler")} Dimensions</span><strong>${escape(uploaded ? meta.dimensions.replace("Dimensions unavailable", "Unavailable") : "Unavailable")}</strong></div>
+      <div class="upload-info-row"><span>${icon("file")} File Type</span><strong>${escape(uploaded ? fileTypeFromName(meta.filename) : "Unavailable")}</strong></div>
+    </section>
+
+    <details class="upload-advanced">
+      <summary>Advanced Processing</summary>
+      <div class="upload-advanced-body">
+        <label>Vector Mode
+          <select name="vector-mode" ${state.busy ? "disabled" : ""}>
+            ${[
+              ["color", "Color trace"],
+              ["precision", "Precision shapes"],
+              ["mono", "Single-color logo"],
+              ["reconstruction", "Layer reconstruction"],
+            ].map(([value,text]) => `<option value="${value}" ${state.mode === value ? "selected" : ""}>${text}</option>`).join("")}
+          </select>
+        </label>
+        ${checkbox("Reduce image noise", "noise", p?.settings?.noise_reduction ?? true)}
+        ${checkbox("Preserve source colors", "colors", p?.settings?.preserve_original_colors ?? true)}
+        ${checkbox("Detect text (OCR)", "ocr", p?.settings?.ocr ?? false)}
+      </div>
+    </details>
+  </aside>`;
 }
 
 function currentProcess() {
@@ -975,9 +1107,13 @@ function footer() {
 
 function uploadStatusDialog() {
   if (!(state.busy && state.operation === "Uploading Artwork")) return "";
-  return `<div class="upload-status-dialog" role="status" aria-live="polite">
-    <span class="spinner" aria-hidden="true"></span>
-    <div><strong>Uploading Artwork...</strong><p>Preparing your file for processing.</p></div>
+  return `<div class="upload-status-dialog upload-reference-progress" role="status" aria-live="polite">
+    <div class="upload-progress-orb"><span></span></div>
+    <div class="upload-progress-copy">
+      <div class="row between"><strong>Uploading artwork...</strong><span class="muted small">Working</span></div>
+      <p>${escape(state.operationDetail || "Preparing workspace and validating the source file.")}</p>
+      <div class="upload-progress-track" aria-hidden="true"><span></span></div>
+    </div>
   </div>`;
 }
 
@@ -1049,10 +1185,10 @@ function render() {
   const p = state.project;
   const max = highestStep();
   app.innerHTML = `<header class="topbar">
-      <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>A Tool of Jersey OS</small></div></div>
-      <div class="topbar-center" aria-hidden="true"></div>
+      <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>Inside JerseyOS</small></div></div>
+      <div class="topbar-center">${state.step === 0 ? uploadHeaderStatuses() : ""}</div>
       <div class="right">
-        ${btn("New Artwork", "new-project", "quiet")}
+        ${state.step === 0 ? "" : btn("New Artwork", "new-project", "quiet")}
         ${profileMenu()}
         ${btn(icon("menu"), "menu-toggle", "icon-button menu-button", false, 'aria-label="Open JerseyOS menu"')}
       </div>
@@ -1070,24 +1206,33 @@ function render() {
         <div class="bootstrap-status"><span class="spinner"></span>${escape(startupCurrentLabel())}</div>
       </div>
     </div>` : ""}
-    ${connectionStatus()}
+    ${state.step === 0 ? "" : connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
     <div class="production-shell"><nav class="stepper" aria-label="Processing workflow">
-      ${[["Upload",0],["Analyze",1],["Enhance",1],["Mockup",1],["Detect Parts",2],["Vectorize",3],["Validate",4],["Download",5]].map(([label,index],n)=>{
+      ${[
+        ["Upload",0,"Jersey image or design file"],
+        ["Analyze",1,"Detect structure & parts"],
+        ["Enhance",1,"Clean, sharpen & rebuild"],
+        ["Mockup",1,"Preview production reference"],
+        ["Detect Parts",2,"Identify garment pieces"],
+        ["Vectorize",3,"Convert to production vectors"],
+        ["Validate",4,"Check vector integrity"],
+        ["Download",5,"Export factory-ready files"],
+      ].map(([label,index,description],n)=>{
         const metadataKey = {Analyze:"analysis",Enhance:"enhancement",Mockup:"mockup"}[label];
         const done = metadataKey && label !== "Analyze" ? Boolean(p?.ai_metadata?.[metadataKey]?.provider) : index < state.step || Boolean(p?.ai_metadata?.[metadataKey]?.provider);
         const event = state.job?.process_event?.event;
         const phases = {Analyze:"ANALYZING_ARTWORK",Enhance:"ENHANCING_ARTWORK",Mockup:"CREATING_PATTERN_MOCKUP"};
         const active = index === state.step && (!metadataKey || event === phases[label] || (label === "Analyze" && ![phases.Enhance,phases.Mockup].includes(event)));
-        return `<button class="step ${active?"active":done?"complete":""}" data-action="navigate" data-step="${index}" ${index>max?"disabled":""}><span class="step-number">${done?icon("check"):n+1}</span><span><strong>${label}</strong><small>${done?"Complete":active?"Current step":metadataKey&&state.step>1?"Not used":"Upcoming"}</small></span></button>`;
+        return `<button class="step ${active?"active":done?"complete":""}" data-action="navigate" data-step="${index}" ${index>max?"disabled":""}><span class="step-number">${done?icon("check"):n+1}</span><span><strong>${label}</strong><small>${escape(description)}</small></span></button>`;
       }).join("")}
     </nav><div class="production-content">
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
       : ""}
-    <div class="workspace">
-      ${state.step < 2 ? settingsPanel() : state.step === 2 ? partInspector() : ""}
+    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : ""}">
+      ${state.step === 0 ? "" : state.step < 2 ? settingsPanel() : state.step === 2 ? partInspector() : ""}
       ${state.step === 0
         ? inputMain()
         : state.step === 1
@@ -1099,16 +1244,18 @@ function render() {
               : state.step === 4
                 ? validationMain()
                 : downloadMain()}
-      ${state.step < 2
-        ? `<aside class="card inspector stack">
-            <div class="section-kicker">Production Principles</div>
-            <h2>AI understands. Engine measures.</h2>
-            <p class="small muted">AI may analyze, enhance and create an intermediate mockup. ReVector Engine owns boundaries, vector geometry, validation and part exports.</p>
-            <div class="divider"></div>
-            <strong>Eight logical slots</strong>
-            <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim Strip.</p>
-          </aside>`
-        : ""}
+      ${state.step === 0
+        ? uploadSetupPanel()
+        : state.step < 2
+          ? `<aside class="card inspector stack">
+              <div class="section-kicker">Production Principles</div>
+              <h2>AI understands. Engine measures.</h2>
+              <p class="small muted">AI may analyze, enhance and create an intermediate mockup. ReVector Engine owns boundaries, vector geometry, validation and part exports.</p>
+              <div class="divider"></div>
+              <strong>Eight logical slots</strong>
+              <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim Strip.</p>
+            </aside>`
+          : ""}
     </div>
     ${footer()}
     </div></div>
