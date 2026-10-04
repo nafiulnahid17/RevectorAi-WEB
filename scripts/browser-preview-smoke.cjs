@@ -132,6 +132,7 @@ const http = require("node:http");
     await page
       .getByRole("button", { name: "Retry engine connection", exact: true })
       .click();
+    await page.locator('[data-connection="engine"].connected').waitFor();
     await page.locator('[data-connection="tool"].failed').waitFor();
     assert.equal(
       await page.locator('[data-connection="engine"].connected').count(),
@@ -141,6 +142,7 @@ const http = require("node:http");
     await page
       .getByRole("button", { name: "Retry tool connection", exact: true })
       .click();
+    await page.locator('[data-connection="tool"].connected').waitFor();
     await page.getByText("Ready", { exact: true }).waitFor();
     assert.equal(
       await page.locator(".connection-segment.connected").count(),
