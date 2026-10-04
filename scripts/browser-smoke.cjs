@@ -118,7 +118,8 @@ const { execFileSync } = require("node:child_process");
 
   for (const assignment of assignments) {
     extras = page.locator(".compact-parts button");
-    assert.ok((await extras.count()) > 0, "A component must remain available for classification");
+    const before = await extras.count();
+    assert.ok(before > 0, "A component must remain available for classification");
     await extras.first().click();
     await page.locator('[name="part-name"]').fill(assignment.name);
     await page.locator('[name="part-type"]').selectOption(assignment.type);
@@ -127,21 +128,32 @@ const { execFileSync } = require("node:child_process");
     await page
       .getByRole("button", { name: "Save & Confirm Part", exact: true })
       .click();
-    await page.getByText("8-Part Review", { exact: true }).waitFor();
+    await page.waitForFunction(
+      (expected) => document.querySelectorAll(".compact-parts button").length === expected,
+      before - 1,
+    );
   }
 
   extras = page.locator(".compact-parts button");
   while ((await extras.count()) > 0) {
+    const before = await extras.count();
     await extras.first().click();
     await page.getByRole("button", { name: "Remove Part", exact: true }).click();
-    await page.getByText("8-Part Review", { exact: true }).waitFor();
+    await page.waitForFunction(
+      (expected) => document.querySelectorAll(".compact-parts button").length === expected,
+      before - 1,
+    );
     extras = page.locator(".compact-parts button");
   }
 
   let blankButtons = page.locator('[data-action="leave-blank"]');
   while ((await blankButtons.count()) > 0) {
+    const before = await blankButtons.count();
     await blankButtons.first().click();
-    await page.getByText("8-Part Review", { exact: true }).waitFor();
+    await page.waitForFunction(
+      (expected) => document.querySelectorAll('[data-action="leave-blank"]').length === expected,
+      before - 1,
+    );
     blankButtons = page.locator('[data-action="leave-blank"]');
   }
 
