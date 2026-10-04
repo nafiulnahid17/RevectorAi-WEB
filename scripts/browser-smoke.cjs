@@ -292,6 +292,15 @@ const { execFileSync } = require("node:child_process");
     "Offline state should produce one short error voice",
   );
 
+  // First offline occurrence: verify NO preserves the project and closes guidance.
+  await page.getByRole("button", { name: "No", exact: true }).click();
+  assert.equal(await page.locator(".assistant-card").count(), 0);
+  await context.setOffline(false);
+  await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30000 });
+
+  // Second occurrence: verify YES exposes only supported recovery guidance.
+  await context.setOffline(true);
+  await page.getByText("Connection Lost", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Yes, Help Me", exact: true }).click();
   await page.locator(".assistant-guidance").waitFor();
   assert.equal(
@@ -299,8 +308,11 @@ const { execFileSync } = require("node:child_process");
     true,
     "Offline assistant should expose the supported reconnect action",
   );
-  await page.getByRole("button", { name: "No", exact: true }).click();
-  assert.equal(await page.locator(".assistant-card").count(), 0);
+  const repeatedOfflineVoices = await page.evaluate(() =>
+    window.__revectorVoice.filter((text) => text.includes("Connection lost")).length,
+  );
+  assert.equal(repeatedOfflineVoices, 1, "The same offline error should be voiced only once");
+  await page.getByRole("button", { name: "Close assistant", exact: true }).click();
   await context.setOffline(false);
   await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30000 });
 
