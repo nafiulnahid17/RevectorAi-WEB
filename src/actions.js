@@ -442,6 +442,7 @@ async function applyFill() {
 
 async function assistantHelp(question = "") {
   const error = state.error;
+  state.assistantEngaged = true;
   if (!error) return;
   if (!state.networkOnline) {
     state.assistantAdvice = localAdvice(error);
@@ -801,6 +802,8 @@ async function handle(action, target) {
       state.error = null;
       state.assistantAdvice = null;
       state.assistantOpen = false;
+      state.assistantEngaged = false;
+      state.assistantShowDetails = false;
       render();
       break;
     case "retry-connection":

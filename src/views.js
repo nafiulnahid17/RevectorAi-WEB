@@ -1019,6 +1019,8 @@ function render() {
 
   bindCanvas();
   if (state.step === 3 && !state.busy && state.view === "vector") loadVector();
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new CustomEvent("revector:state-rendered"));
 }
 
 async function loadVector() {
