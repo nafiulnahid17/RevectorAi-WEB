@@ -66,10 +66,10 @@ jobs:
           npx playwright install --with-deps chromium
           python -m venv engine/.venv
           engine/.venv/bin/pip install --upgrade pip
-          engine/.venv/bin/pip install -r engine/requirements.txt
-      - name: Verify approved engine upgrade integration suite
+          (cd engine && .venv/bin/pip install -r requirements.txt)
+      - name: Verify approved engine regression suite
         working-directory: engine
-        run: .venv/bin/pytest tests/integration/test_upgrade.py
+        run: .venv/bin/pytest
       - name: Build web workspace
         run: npm run build
       - name: Start approved engine and secured local Worker
