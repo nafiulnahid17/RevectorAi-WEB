@@ -1952,7 +1952,9 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
 .engine-card.warning{background:#292419;border-color:#675435}
 .engine-card.error{background:#2a1924;border-color:#69404a}
 .badge.red,.status-error,.account-error{background:#301d27;color:#f6b3bc;border-color:#704351}
-.status-error{margin:14px 18px 0}
+.status-error{margin:14px 18px 0;flex-wrap:wrap;align-items:center}
+.status-error>span{min-width:0;flex:1 1 260px;overflow-wrap:anywhere}
+.status-error button{margin-left:0}
 .preview{background:#06101b}
 .preview-frame,.artwork-stage{border-color:var(--border)}
 .workspace-footer,.bottom-bar{background:#091522;border-color:var(--border)}
@@ -1998,3 +2000,5 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
 
 @media(max-width:720px){.bootstrap-card{padding:28px 18px 24px}.bootstrap-logo{width:92px;height:92px}.bootstrap-card h1{font-size:27px}.bootstrap-stages{grid-template-columns:1fr 1fr}.revector-brand small{display:none}}
 @media(prefers-reduced-motion:reduce){.bootstrap-overlay:before,.bootstrap-logo,.bootstrap-progress span,.bootstrap-stage.pending .bootstrap-stage-dot{animation:none}}
+
+@media(max-width:640px){.status-error{margin:10px 12px 0;padding:10px 12px;align-items:flex-start}.status-error>strong{width:100%}.status-error>span{flex-basis:100%}.status-error button{flex:1 1 auto}}
