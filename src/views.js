@@ -1184,7 +1184,7 @@ function render() {
   renderedAccountMarker = null;
   const p = state.project;
   const max = highestStep();
-  app.innerHTML = `<header class="topbar">
+  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : ""}">
       <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>Inside JerseyOS</small></div></div>
       <div class="topbar-center">${state.step === 0 ? uploadHeaderStatuses() : ""}</div>
       <div class="right">
@@ -1209,7 +1209,7 @@ function render() {
     ${state.step === 0 ? "" : connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
-    <div class="production-shell"><nav class="stepper" aria-label="Processing workflow">
+    <div class="production-shell ${state.step === 0 ? "upload-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
       ${[
         ["Upload",0,"Jersey image or design file"],
         ["Analyze",1,"Detect structure & parts"],
