@@ -70,17 +70,14 @@ export async function handle(request, env, transport = fetch) {
   const url = new URL(request.url);
   const isAPI = url.pathname.startsWith("/api/") || url.pathname.startsWith("/health");
   if (!isAPI) {
-    if (url.pathname.startsWith("/admin") && url.pathname !== "/admin/login") {
-      try { await authenticate(request, env, transport, true); }
-      catch { return decorate(Response.redirect(url.origin + "/admin/login", 302), null, false); }
-    }
-    const assetRequest = new Request(url.origin + (url.pathname.startsWith("/admin") ? "/admin-login.html" : "/index.html"), request);
-    const response = await env.ASSETS.fetch(url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard") || url.pathname === "/login" ? assetRequest : request);
+    if (url.pathname === "/admin-login.html" || url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return decorate(error("ROUTE_NOT_ALLOWED",404),null,false);
+    const assetRequest=new Request(url.origin+"/index.html",request);
+    const response=await env.ASSETS.fetch(url.pathname.startsWith("/dashboard")||url.pathname==="/login"?assetRequest:request);
     return decorate(response, null, false);
   }
   if (request.headers.get("sec-fetch-site") === "cross-site" || (MUTATIONS.has(request.method) && request.headers.get("origin") !== url.origin)) return decorate(error("ORIGIN_REJECTED", 403));
   if (url.pathname === "/health" && request.method === "GET") return decorate(Response.json({ status: "ok", engine: "ReVector", server: "Cloudflare gateway" }));
-  if (/^\/api\/(?:account|auth|admin)\//.test(url.pathname)) {
+  if (/^\/api\/(?:account|auth)\//.test(url.pathname)) {
     try { return controlResponse(await controlRoute(request, env, transport)); }
     catch (error) { return decorate(failure(error)); }
   }

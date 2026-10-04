@@ -10,8 +10,7 @@ const { chromium } = require("playwright"),
   });
   const output = process.env.REVECTOR_QA_DIR || "test-results/account";
   await fs.mkdir(output, { recursive: true });
-  const html = await fs.readFile("public/index.html", "utf8"),
-    adminHTML = await fs.readFile("public/admin-login.html", "utf8");
+  const html = await fs.readFile("public/index.html", "utf8");
   const U = "00000000-0000-4000-8000-000000000002",
     A = "00000000-0000-4000-8000-000000000001",
     T = "00000000-0000-4000-8000-000000000005";
@@ -61,6 +60,7 @@ const { chromium } = require("playwright"),
       p = url.pathname,
       body = r.postDataJSON?.bind(r);
     requests.push([r.method(), p]);
+    assert.ok(!p.startsWith("/api/admin/"), "User app attempted an Admin API");
     let data = {};
     if (p === "/health")
       return route.fulfill({ json: { status: "ok", engine: "ReVector" } });
@@ -86,7 +86,7 @@ const { chromium } = require("playwright"),
     if (!p.startsWith("/api/"))
       return route.fulfill({
         contentType: "text/html",
-        body: p.startsWith("/admin") ? adminHTML : html,
+        body: html,
       });
     if (p === "/api/account/bootstrap") data = { configured: true, profile };
     else if (p === "/api/account/wallet")
@@ -234,46 +234,11 @@ const { chromium } = require("playwright"),
     await page.getByRole("button", { name: "Submit Credit Request" }).click();
     await page.getByText("PENDING", { exact: true }).waitFor();
     assert.equal(balance, 12);
-    await page.goto("https://qa.revector.test/admin/login");
-    await page.getByRole("heading", { name: "Admin Sign In" }).waitFor();
-    assert.equal(
-      await page.locator(".stepper,.workspace,.profile-dropdown").count(),
-      0,
-    );
-    await page.locator("[name=email]").fill("admin@example.test");
-    await page.locator("[name=password]").fill("QA password");
-    await page
-      .getByRole("button", { name: "Sign In to Admin Console" })
-      .click();
-    await page
-      .getByRole("heading", { name: "Overview", exact: true })
-      .waitFor();
-    await page
-      .locator(".account-nav")
-      .getByRole("link", { name: "Credit Requests", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Review", exact: true }).click();
-    await page.locator("[name=response]").fill("Verified test request");
-    await page.getByRole("button", { name: "Record Decision" }).click();
-    await page.getByText("APPROVED", { exact: true }).waitFor();
-    assert.equal(balance, 20);
-    assert.equal(ledger.length, 1);
-    await page
-      .locator(".account-nav")
-      .getByRole("link", { name: "Support Inbox", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Open", exact: true }).click();
-    await page
-      .locator("[name=message]")
-      .fill("Review your crop boundary and revalidate.");
-    await page.locator("[name=status]").selectOption("IN_PROGRESS");
-    await page.getByRole("button", { name: "Send Support Reply" }).click();
-    await page.getByText("IN_PROGRESS", { exact: true }).waitFor();
-    assert.equal(messages.length, 1);
-    await page.screenshot({
-      path: path.join(output, "admin-support.png"),
-      fullPage: true,
-    });
+    // Test-only server fixture for an operations reply from the separate application.
+    messages.push({author_role:"ADMIN",message:"Review your crop boundary and revalidate.",created_at:new Date().toISOString()});
+    tickets[0].status="IN_PROGRESS";
+    assert.ok(!html.includes("ADMIN CONSOLE"));
+    assert.ok(!html.includes("/api/admin/"));
     await page.goto("https://qa.revector.test/dashboard/support");
     await page.getByRole("button", { name: "Open", exact: true }).click();
     await page
@@ -320,7 +285,7 @@ const { chromium } = require("playwright"),
     console.log(
       JSON.stringify({
         account_browser: "PASS",
-        separate_admin_shell: "PASS",
+        admin_ui_absent: "PASS",
         manual_topup: "PASS",
         support_reply_history: "PASS",
         responsive_widths: [1920, 1600, 1440, 1366, 1280, 390],

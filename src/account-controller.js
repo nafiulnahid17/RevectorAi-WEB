@@ -39,8 +39,7 @@ export async function accountRequest(path, method = "GET", body) {
   return data;
 }
 export async function navigateAccount(path) {
-  if (!/^\/(?:dashboard(?:\/[^?#]*)?|admin(?:\/[^?#]*)?|login)?$/.test(path))
-    return;
+  if (!/^\/(?:dashboard(?:\/[^?#]*)?|login)?$/.test(path)) return;
   history.pushState({}, "", path);
   account.menu = false;
   account.error = "";
@@ -63,14 +62,6 @@ async function guarded(work) {
     return await work();
   } catch (e) {
     account.error = e.message;
-    if (
-      e.status === 401 &&
-      currentPath().startsWith("/admin") &&
-      currentPath() !== "/admin/login"
-    ) {
-      account.adminProfile = null;
-      history.replaceState({}, "", "/admin/login");
-    }
     return null;
   } finally {
     account.busy = false;
@@ -89,16 +80,6 @@ export async function initializeAccount() {
     account.profile = result.profile;
   } catch {
     account.configured = null;
-  }
-  if (currentPath().startsWith("/admin") && currentPath() !== "/admin/login") {
-    try {
-      account.adminProfile = (
-        await accountRequest("/api/admin/session")
-      ).profile;
-    } catch (e) {
-      account.error = e.message;
-      history.replaceState({}, "", "/admin/login");
-    }
   }
   if (account.configured === true && !account.profile && currentPath() === "/")
     history.replaceState({}, "", "/login");
@@ -124,43 +105,9 @@ export async function initializeAccount() {
 }
 export async function loadAccountPage() {
   const page = accountPage();
-  if (
-    !page ||
-    ["login", "admin-login"].includes(page) ||
-    account.configured === false
-  )
-    return;
+  if (!page || page === "login" || account.configured === false) return;
   await guarded(async () => {
     const offset = "?offset=" + account.offset;
-    if (currentPath().startsWith("/admin")) {
-      if (!account.adminProfile)
-        account.adminProfile = (
-          await accountRequest("/api/admin/session")
-        ).profile;
-      if (account.adminProfile.role === "SUPPORT" && page !== "support") {
-        history.replaceState({}, "", "/admin/support");
-        return loadAccountPage();
-      }
-      if (page === "settings") {
-        const [settings, catalog] = await Promise.all([
-          accountRequest("/api/admin/settings"),
-          accountRequest("/api/admin/models"),
-        ]);
-        account.data = { settings, catalog: catalog.items };
-      } else if (["credits", "models"].includes(page)) {
-        const [requests, catalog] = await Promise.all([
-          accountRequest(
-            "/api/admin/requests" +
-              offset +
-              "&type=" +
-              (page === "credits" ? "TOPUP" : "MODEL_CHANGE"),
-          ),
-          accountRequest("/api/admin/models"),
-        ]);
-        account.data = { items: requests.items, catalog: catalog.items };
-      } else account.data = await accountRequest("/api/admin/" + page + offset);
-      return;
-    }
     if (!account.profile) return;
     const pages = {
       dashboard: ["wallet", "usage", "models", "preferences"],
@@ -202,20 +149,15 @@ export async function accountClick(target) {
     );
     return loadAccountPage();
   }
-  if (action === "logout" || action === "admin-logout")
+  if (action === "logout")
     return guarded(async () => {
-      await accountRequest(
-        action === "logout" ? "/api/auth/logout" : "/api/admin/auth/logout",
-        "POST",
-        {},
-      );
+      await accountRequest("/api/auth/logout", "POST", {});
       account.profile = null;
-      account.adminProfile = null;
       try {
         localStorage.removeItem("revector.project");
         localStorage.removeItem("revector.active-job");
       } catch {}
-      location.assign(action === "logout" ? "/login" : "/admin/login");
+      location.assign("/login");
     });
   if (action === "close-ticket") {
     account.ticket = null;
@@ -223,77 +165,29 @@ export async function accountClick(target) {
     redraw();
     return;
   }
-  if (action === "edit-wallet" || action === "edit-status") {
-    account.editUser = target.dataset.id;
-    redraw();
-    return;
-  }
-  if (action === "edit-model") {
-    account.editModel = account.data.catalog.find(
-      (m) => m.id === target.dataset.id,
-    );
-    redraw();
-    return;
-  }
-  const admin = currentPath().startsWith("/admin");
-  const requests = admin
-    ? account.data.items || []
-    : account.data.requests?.items || [];
-  if (action === "review-request") {
-    account.ticket = requests.find((r) => r.id === target.dataset.id);
-    redraw();
-    return;
-  }
+  const requests = account.data.requests?.items || [];
   if (action === "ticket")
     return guarded(async () => {
       account.ticket = requests.find((r) => r.id === target.dataset.id);
       account.messages = (
         await accountRequest(
-          (admin ? "/api/admin" : "/api/account") +
+          "/api/account" +
             "/support/messages?request_id=" +
             encodeURIComponent(target.dataset.id),
         )
       ).items;
     });
 }
-const operationKeys = new Map();
-function idempotency(action, data) {
-  const fingerprint = JSON.stringify(data);
-  const existing = operationKeys.get(action);
-  if (existing?.fingerprint === fingerprint) return existing.key;
-  const key = crypto.randomUUID();
-  operationKeys.set(action, { fingerprint, key });
-  return key;
-}
 export async function accountSubmit(element) {
   const type = element.dataset.accountForm;
   const data = Object.fromEntries(new FormData(element));
   await guarded(async () => {
     let result;
-    if (type === "login" || type === "admin-login") {
-      result = await accountRequest(
-        type === "admin-login" ? "/api/admin/auth/login" : "/api/auth/login",
-        "POST",
-        data,
-      );
-      if (type === "admin-login") account.adminProfile = result.profile;
-      else account.profile = result.profile;
-      history.replaceState(
-        {},
-        "",
-        type === "admin-login"
-          ? result.profile.role === "SUPPORT"
-            ? "/admin/support"
-            : "/admin"
-          : "/",
-      );
+    if (type === "login") {
+      result = await accountRequest("/api/auth/login", "POST", data);
+      account.profile = result.profile;
       account.notice = "";
-      redraw();
-      if (type === "login") {
-        location.assign("/");
-        return;
-      }
-      await loadAccountPage();
+      location.assign("/");
       return;
     }
     const userRoutes = {
@@ -315,31 +209,9 @@ export async function accountSubmit(element) {
       await accountRequest("/api/account/requests", "POST", data);
     } else if (type === "support-message")
       await accountRequest("/api/account/support/message", "POST", data);
-    else if (type === "support-reply")
-      await accountRequest("/api/admin/support/reply", "POST", data);
-    else if (type === "adjust") {
-      data.delta = Number(data.delta);
-      data.idempotency_key = idempotency(type, data);
-      await accountRequest("/api/admin/wallet/adjust", "POST", data);
-    } else if (type === "decision") {
-      data.idempotency_key = idempotency(type, data);
-      await accountRequest("/api/admin/requests/decide", "POST", data);
-    } else if (type === "status")
-      await accountRequest("/api/admin/users/status", "POST", data);
-    else if (type === "catalog") {
-      try {
-        data.operation_prices = JSON.parse(data.operation_prices);
-      } catch {
-        throw new Error("Enter a valid JSON object of operation prices.");
-      }
-      data.enabled = data.enabled === "true";
-      await accountRequest("/api/admin/models/update", "POST", data);
-    } else throw new Error("This action is unavailable.");
-    operationKeys.delete(type);
+    else throw new Error("This action is unavailable.");
     account.notice = "Saved successfully.";
     account.ticket = null;
-    account.editModel = null;
-    account.editUser = null;
     await loadAccountPage();
   });
 }

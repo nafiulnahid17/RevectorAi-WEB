@@ -7,7 +7,8 @@ Supabase. No OpenAI integration or production configuration was performed.
 ```mermaid
 flowchart LR
   U[User production app / account] --> W[Cloudflare Worker]
-  A[Separate Admin / Support Console] --> W
+  A[Standalone Admin / Support Console] --> AW[Separate Admin Worker]
+  AW --> S
   W --> S[Supabase Auth + Control tables]
   W --> E[Railway ReVector engine]
 ```
@@ -18,19 +19,19 @@ User workspace: `/`. Account: `/dashboard` and `/dashboard/{profile,balance,add-
 User profile menu contains Profile, Balance, Add Credits, Usage, Select Models,
 Support and Sign Out. Its DOM never includes admin navigation.
 
-Operations: `/admin/login`, `/admin`, `/admin/{users,wallets,credits,usage,models,support,audit,settings}`.
-The admin login is prerendered as its own static shell, including with JavaScript
-disabled. Protected `/admin/*` pages require a verified operations session on the
-Worker before assets are served. USER cannot enter. SUPPORT is limited to the
-Support Inbox and replies; financial/global administration requires ADMIN.
+Operations have moved to the separate **Revectorai-support-** repository/Worker.
+This USER application does not serve `/admin/*`, the legacy admin HTML asset or
+`/api/admin/*`. See [repository split](REPOSITORY-SPLIT.md). The operations console
+uses its own hostname, signing key, login and server-side role checks. SUPPORT
+is ticket-only; financial/global administration requires ADMIN.
 
 Normal login does not create an admin session, including for a user with ADMIN
-role. Both cookies are independently AES-GCM encrypted and bound to their cookie
+role. Cookies in the separate applications are AES-GCM encrypted and bound to their cookie
 name and web origin. HttpOnly, Secure on HTTPS, SameSite=Lax, host-only cookies.
 Access/refresh tokens never enter browser JavaScript/localStorage. Each API request
 verifies the Auth user and re-reads the active database profile/role. JWT
 `user_metadata.role`, UI state and caller owner headers grant no authority.
-Logout invalidates all ReVector sessions for the account and clears both cookies.
+Logout invalidates all ReVector sessions for the account and clears cookies on the current host.
 Supabase password policy remains authoritative; the UI/backend minimum is 12 characters.
 
 The production rail remains Upload → Analyze → Enhance → Mockup → Detect Parts →
@@ -153,6 +154,7 @@ stored. This implementation does not claim live Supabase/provider billing valida
 All mutations require same-origin Origin and existing CSRF policy. JSON requests and
 provider responses are bounded; transport uses HTTPS, finite timeouts, no redirects.
 API responses use no-store. Engine secrets/owner headers are injected server-side.
+Privileged Admin APIs are documented and hosted only in Revectorai-support-.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -170,19 +172,7 @@ API responses use no-store. Engine secrets/owner headers are injected server-sid
 | GET/POST /api/account/requests | own top-up/model/support requests |
 | GET /api/account/support/messages?request_id=UUID | own ticket conversation |
 | POST /api/account/support/message | reply to own non-closed ticket |
-| POST /api/admin/auth/login | separate ADMIN/SUPPORT login and cookie |
-| POST /api/admin/auth/logout | operations sign out |
-| GET /api/admin/session | verified operations profile |
-| GET /api/admin/overview | measured aggregate operational counts/costs |
-| GET /api/admin/users, wallets, transactions, usage, requests, audit, models | authorized global lists |
-| GET /api/admin/support | support inbox with user identity/priority/status |
-| GET /api/admin/support/messages?request_id=UUID | operations ticket history |
-| POST /api/admin/support/reply | audited conversation reply + ticket status |
-| POST /api/admin/wallet/adjust | user_id, delta, reason, idempotency_key |
-| POST /api/admin/requests/decide | request_id, APPROVED/REJECTED/REPLY, response, idempotency_key; optional approved model_id |
-| POST /api/admin/users/status | audited ACTIVE/SUSPENDED/DISABLED change; no self-disable |
-| GET /api/admin/settings | safe control configuration; no secrets/infrastructure editor |
-| POST /api/admin/models/update | authorized enabled flag, operation_prices JSON, pricing_version, reason |
+
 
 List envelopes are `{items:[...]}`; pagination uses validated `offset`, 50 rows per
 page. User-provided `user_id` filters never override verified identity. Requests

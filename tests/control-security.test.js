@@ -94,61 +94,24 @@ async function login(f, admin = false) {
   assert.ok(!JSON.stringify(data).includes("access-"));
   return r.headers.get("set-cookie").split(";")[0];
 }
-test("dedicated admin login/cookie cannot be granted by user session or forged metadata", async () => {
+test("user Worker does not expose any Admin API, regardless of cookie or caller role", async () => {
   const f = fixture(),
     cookie = await login(f);
-  const response = await handle(
-    req("/api/admin/overview", "GET", undefined, { cookie }),
-    env,
-    f.transport,
-  );
-  assert.equal(response.status, 401);
-  assert.equal(
-    (
-      await handle(
-        req("/api/admin/auth/login", "POST", {
-          email: "user@example.test",
-          password: "test-only-password",
-        }),
-        env,
-        f.transport,
-      )
-    ).status,
-    403,
-  );
-  const copied = cookie.replace("revector_user_auth", "revector_admin_auth");
-  assert.equal(
-    (
-      await handle(
-        req("/api/admin/overview", "GET", undefined, { cookie: copied }),
-        env,
-        f.transport,
-      )
-    ).status,
-    401,
-  );
-  const adminCookie = await login(f, true);
-  assert.equal(
-    (
-      await handle(
-        req("/api/admin/overview", "GET", undefined, { cookie: adminCookie }),
-        env,
-        f.transport,
-      )
-    ).status,
-    200,
-  );
-  f.profiles[A].role = "USER";
-  assert.equal(
-    (
-      await handle(
-        req("/api/admin/overview", "GET", undefined, { cookie: adminCookie }),
-        env,
-        f.transport,
-      )
-    ).status,
-    403,
-  );
+  for (const path of [
+    "/api/admin/auth/login",
+    "/api/admin/overview",
+    "/api/admin/wallet/adjust",
+    "/api/admin/support",
+  ]) {
+    const method =
+      path.endsWith("/login") || path.endsWith("/adjust") ? "POST" : "GET";
+    const r = await handle(
+      req(path, method, method === "POST" ? {} : undefined, { cookie }),
+      env,
+      () => assert.fail("Admin endpoint reached a transport"),
+    );
+    assert.equal(r.status, 404);
+  }
 });
 test("user data queries use verified owner + RLS token, never a requested owner", async () => {
   const f = fixture(),
@@ -228,23 +191,20 @@ test("engine uses stable verified account identity and rejects incomplete accoun
     401,
   );
 });
-test("protected admin HTML requires its own session; public login is a separate shell", async () => {
-  const f = fixture(),
-    cookie = await login(f);
-  const assets = { fetch: async (r) => new Response(new URL(r.url).pathname) };
-  const user = await handle(
-    req("/admin", "GET", undefined, { cookie }),
-    { ...env, ASSETS: assets },
-    f.transport,
-  );
-  assert.equal(user.status, 302);
-  assert.equal(user.headers.get("location"), "https://web.example/admin/login");
-  const loginPage = await handle(
-    req("/admin/login"),
-    { ...env, ASSETS: assets },
-    f.transport,
-  );
-  assert.equal(await loginPage.text(), "/admin-login.html");
+test("user Worker no longer serves Admin HTML or its legacy asset", async () => {
+  for (const path of [
+    "/admin",
+    "/admin/login",
+    "/admin/support",
+    "/admin-login.html",
+  ]) {
+    const r = await handle(
+      req(path),
+      { ...env, ASSETS: { fetch: () => assert.fail("Admin asset served") } },
+      () => assert.fail(),
+    );
+    assert.equal(r.status, 404);
+  }
 });
 test("expired/revoked cookies and cross-origin control mutations fail closed", async () => {
   const f = fixture();

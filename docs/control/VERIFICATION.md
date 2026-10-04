@@ -1,5 +1,8 @@
 # ReVector WEB upgrade verification
 
+Historical initial upgrade report. Admin hosting/API statements below are superseded
+by [the repository split](REPOSITORY-SPLIT.md). The current user app has no Admin UI/API.
+
 Date: 2026-10-05 (Asia/Dhaka). Baseline WEB main: da7250001188cc6cd329d6324a6fe4e2be2978e4.
 Engine local source remained unchanged at ca43c35aa363695c4eaa6b563a2bbf89102396c9.
 CI pins approved engine API commit 699ac010ad73c6eb5f8bf4b932f9cd5952879aff.

@@ -111,7 +111,7 @@ from project validation: True Vector exports require zero embedded raster artwor
 ## Development and verification
 
 Edit modular sources under `src/`; run `npm run build` to regenerate
-`public/index.html`, `public/admin-login.html` and the matching Worker script-hash
+`public/index.html` and the matching Worker script-hash
 manifest. Commit all three.
 Static sample images are inputs, not fake vector exports.
 
@@ -132,7 +132,7 @@ be verified against the real deployed engine before claiming successful deployme
 ## Account controls and separate operations console
 
 The user profile dropdown opens private `/dashboard` account sections. Administrators
-and support staff use a separate `/admin/login` and `/admin` console with its own
+and support staff use the separate Revectorai-support- repository/Worker with its own
 session. User login never grants an operations session. Financial and global APIs
 require server-side ADMIN authorization; SUPPORT is limited to ticket operations.
 

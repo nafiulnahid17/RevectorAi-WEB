@@ -13,7 +13,6 @@ const javascript = result.outputFiles[0].text.replace(/<\/script/g, "<\\/script"
 const temporary = path.join(root, "public/workspace-build.js");
 fs.writeFileSync(temporary, javascript);
 const markup = child.execFileSync(process.execPath, [path.join(root, "scripts/prerender-workspace.cjs"), temporary], { encoding: "utf8" }).replace(/[ \t]+$/gm, "");
-const adminMarkup = child.execFileSync(process.execPath, [path.join(root, "scripts/prerender-workspace.cjs"), temporary, "/admin/login"], { encoding: "utf8" }).replace(/[ \t]+$/gm, "");
 fs.unlinkSync(temporary);
 const fonts = fs.readFileSync(path.join(root, "public/assets/fonts.css"), "utf8");
 const css = fs.readFileSync(path.join(root, "src/workspace.css"), "utf8").replace('@import url("./assets/fonts.css");', fonts) + "\n" + fs.readFileSync(path.join(root, "src/account.css"), "utf8");
@@ -26,7 +25,6 @@ let html = fs.readFileSync(path.join(root, "src/workspace.template.html"), "utf8
   .replace("</body>", () => `<script>\n${javascript}\n</script>\n</body>`);
 fs.mkdirSync(path.join(root, "public"), { recursive: true });
 fs.writeFileSync(path.join(root, "public/index.html"), html);
-fs.writeFileSync(path.join(root, "public/admin-login.html"), html.replace(markup, () => adminMarkup).replace("ReVector — Production Workspace", "ReVector — Support & Operations Console"));
 const scriptHash = crypto.createHash("sha256").update(`\n${javascript}\n`).digest("base64");
 fs.writeFileSync(path.join(root, "worker/security-manifest.json"), JSON.stringify({ scriptHash }) + "\n");
 console.log(`Built Cloudflare web workspace (${Buffer.byteLength(html)} bytes); no engine credentials bundled.`);
