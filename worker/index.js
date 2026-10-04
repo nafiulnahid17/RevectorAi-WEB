@@ -5,14 +5,51 @@ const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const MAX_UPLOAD = 51 * 1024 * 1024;
 const UUID = "[a-f0-9-]{36}";
 const ROUTES = [
-  ["POST", /^\/api\/revector\/(projects|upload|analyze|correct-geometry|segment|reconstruct|vectorize|optimize|compose|validate|export|parts\/actions)$/],
-  ["GET", new RegExp(`^/api/revector/projects/${UUID}(?:/(?:status|parts|validation|exports))?$`)],
-  ["GET", new RegExp(`^/api/revector/projects/${UUID}/artifacts/[^\\\\]+$`)],
-  ["DELETE", new RegExp(`^/api/revector/projects/${UUID}$`)],
-  ["PUT", new RegExp(`^/api/revector/projects/${UUID}/settings$`)],
+  ["POST", /^\/api\/revector\/(projects|upload|analyze|correct-geometry|segment|reconstruct|vectorize|optimize|compose|validate|export|parts\/actions|prepare|production|recover-part|ai-missing|review\/confirm|slots\/update|assistant\/explain|assistant\/feedback)$/],
+  ["GET", /^\/api\/revector\/(capabilities\/ai|error-catalog)$/],
+  ["GET", new RegExp(`^/api/revector/projects/${UUID}(?:/(?:status|parts|validation|exports|events|errors))?import manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
+  ["GET", new RegExp(`^/api/revector/projects/${UUID}/artifacts/[^\\\\]+import manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
+  ["DELETE", new RegExp(`^/api/revector/projects/${UUID}import manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
+  ["PUT", new RegExp(`^/api/revector/projects/${UUID}/settingsimport manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
   ["POST", /^\/api\/revector\/segments\/[A-Za-z0-9_]+\/(confirm|update|vector-edit)$/],
-  ["GET", new RegExp(`^/api/revector/jobs/${UUID}$`)],
-  ["POST", new RegExp(`^/api/revector/jobs/${UUID}/cancel$`)],
+  ["GET", new RegExp(`^/api/revector/jobs/${UUID}import manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
+  ["POST", new RegExp(`^/api/revector/jobs/${UUID}/cancelimport manifest from "./security-manifest.json" with { type: "json" };
+import { session } from "./session.js";
+
+const MUTATIONS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MAX_UPLOAD = 51 * 1024 * 1024;
+const UUID = "[a-f0-9-]{36}";
+)],
 ];
 
 function decorate(response, cookie, isAPI = true) {
