@@ -28,8 +28,97 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Standalone browser preview smoke
-        env:
-          CHROMIUM_PATH: /home/runner/.cache/ms-playwright/chromium-1187/chrome-linux/chrome
         run: |
           CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
           CHROMIUM_PATH="$CHROME" node scripts/browser-preview-smoke.cjs
+
+  engine-browser:
+    needs: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout web review branch
+        uses: actions/checkout@v4
+      - name: Checkout approved engine commit read-only
+        uses: actions/checkout@v4
+        with:
+          repository: nafiulnahid17/RevectorAI-Tool
+          ref: 699ac010ad73c6eb5f8bf4b932f9cd5952879aff
+          path: engine
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+      - name: Install deterministic conversion dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y inkscape ghostscript poppler-utils potrace tesseract-ocr unzip
+      - name: Install web and engine dependencies
+        run: |
+          npm ci
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          python -m venv engine/.venv
+          engine/.venv/bin/pip install --upgrade pip
+          engine/.venv/bin/pip install -r engine/requirements.txt
+      - name: Verify approved engine upgrade integration suite
+        working-directory: engine
+        run: .venv/bin/pytest tests/integration/test_upgrade.py
+      - name: Build web workspace
+        run: npm run build
+      - name: Start approved engine and secured local Worker
+        env:
+          REVECTOR_API_KEY: review-engine-key-0123456789abcdef0123456789abcdef
+          REVECTOR_ALLOW_UNAUTHENTICATED: "false"
+          REVECTOR_DATA_DIR: ${{ github.workspace }}/engine/data/ui-review
+        run: |
+          (
+            cd engine
+            .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8012 > ../engine-review.log 2>&1 &
+            echo $! > ../engine-review.pid
+          )
+          cat > .dev.vars <<'EOF'
+          ENGINE_ORIGIN=http://127.0.0.1:8012
+          ALLOW_INSECURE_LOCAL_ENGINE=true
+          ENGINE_API_KEY=review-engine-key-0123456789abcdef0123456789abcdef
+          SESSION_SIGNING_KEY=review-session-key-0123456789abcdef0123456789abcdef
+          EOF
+          npx wrangler dev --local --ip 127.0.0.1 --port 8787 > worker-review.log 2>&1 &
+          echo $! > worker-review.pid
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8012/health >/dev/null && break
+            sleep 1
+          done
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8787/health >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8012/health
+          curl -fsS http://127.0.0.1:8787/health
+      - name: Real browser production workflow
+        run: |
+          CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
+          CHROMIUM_PATH="$CHROME" REVECTOR_TEST_URL=http://127.0.0.1:8787 node scripts/browser-smoke.cjs
+      - name: Session and ownership security browser regression
+        run: |
+          CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
+          CHROMIUM_PATH="$CHROME" REVECTOR_TEST_URL=http://127.0.0.1:8787 node scripts/browser-security.cjs
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== engine ==="
+          tail -n 250 engine-review.log || true
+          echo "=== worker ==="
+          tail -n 250 worker-review.log || true
+      - name: Stop local services
+        if: always()
+        run: |
+          test -f worker-review.pid && kill "$(cat worker-review.pid)" || true
+          test -f engine-review.pid && kill "$(cat engine-review.pid)" || true
+          rm -f .dev.vars
