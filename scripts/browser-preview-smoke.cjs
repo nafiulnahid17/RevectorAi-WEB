@@ -53,7 +53,7 @@ const http = require("node:http");
     assert.ok(!requests.some((u) => /\.(css|js)(\?|$)/.test(u)));
     assert.equal(await page.locator(".connection-notice").count(), 0);
     await page
-      .getByRole("button", { name: "+ Add part size", exact: true })
+      .getByRole("button", { name: "+ Add Part Size", exact: true })
       .click();
     await page.locator('[name="req-name"]').fill("Front body");
     assert.equal(
