@@ -317,10 +317,24 @@ const { execFileSync } = require("node:child_process");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: path.join(out, "02-mobile.png"), fullPage: true });
+  const mobileOverflow = await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= innerWidth + 1,
+    viewport: innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    offenders: [...document.querySelectorAll("body *")]
+      .filter((element) => element.getBoundingClientRect().right > innerWidth + 1)
+      .slice(0, 8)
+      .map((element) => ({
+        tag: element.tagName,
+        className: element.className?.toString?.() || "",
+        text: (element.textContent || "").trim().slice(0, 100),
+        right: Math.round(element.getBoundingClientRect().right),
+      })),
+  }));
   assert.equal(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+    mobileOverflow.fits,
     true,
-    "Mobile viewport should not overflow horizontally",
+    "Mobile viewport should not overflow horizontally: " + JSON.stringify(mobileOverflow),
   );
 
   assert.deepEqual(errors, []);

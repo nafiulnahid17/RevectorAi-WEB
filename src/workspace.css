@@ -1898,3 +1898,24 @@ dialog pre {
 @media (prefers-reduced-motion: reduce) {
   .upload-status-dialog .spinner { animation: none; }
 }
+
+/* Download workspace must remain bounded on narrow production screens. */
+.export-formats .format {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.export-formats .format small,
+.download-part > span,
+.download-part small,
+.pack-copy,
+.post-download > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .download-parts,
+  .export-formats {
+    grid-template-columns: 1fr;
+  }
+}
