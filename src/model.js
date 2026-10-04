@@ -27,8 +27,8 @@ const expectedSlots = [
   { key: "BACK_BODY", label: "Back Body", type: "back_body" },
   { key: "FRONT_COLLAR", label: "Front Collar", type: "front_collar" },
   { key: "BACK_COLLAR", label: "Back Collar", type: "back_collar" },
-  { key: "TOP_TRIM", label: "Top Trim", type: "top_trim" },
-  { key: "BOTTOM_TRIM", label: "Bottom Trim", type: "bottom_trim" },
+  { key: "TOP_TRIM", label: "Top Trim Strip", type: "top_trim" },
+  { key: "BOTTOM_TRIM", label: "Bottom Trim Strip", type: "bottom_trim" },
 ];
 
 const safeBusyActions = new Set([
@@ -49,6 +49,7 @@ const safeBusyActions = new Set([
 ]);
 
 const state = {
+  initialBootstrap: !globalThis.REVECTOR_PRERENDER,
   project: null,
   selected: null,
   step: 0,

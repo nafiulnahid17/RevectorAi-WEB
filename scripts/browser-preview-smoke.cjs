@@ -3,8 +3,11 @@ const { chromium } = require("playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const http = require("node:http");
+const path = require("node:path");
 
 (async () => {
+  const output = process.env.REVECTOR_QA_DIR || "test-results/preview";
+  await fs.mkdir(output, { recursive: true });
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
     args: ["--no-sandbox"],
@@ -156,7 +159,7 @@ const http = require("node:http");
       true,
     );
     await page.screenshot({
-      path: "samples/web-workspace/06-standalone-preview.png",
+      path: path.join(output, "06-standalone-preview.png"),
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });

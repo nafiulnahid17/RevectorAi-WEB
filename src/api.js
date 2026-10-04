@@ -65,8 +65,16 @@ function normalizeError(data, status, fallbackMessage = "Request failed.") {
   return error;
 }
 
+const pendingAIRequests = new Map();
+
 async function request(path, options = {}) {
   const url = apiPath(path);
+  const priced = options.method === "POST" && ["/prepare", "/ai-missing", "/assistant/explain"].includes(path);
+  const signature = priced ? path + ":" + JSON.stringify(options.body || null) : null;
+  if (priced) {
+    if (!pendingAIRequests.has(signature)) pendingAIRequests.set(signature, crypto.randomUUID());
+    options.headers = { ...options.headers, "X-Idempotency-Key": pendingAIRequests.get(signature) };
+  }
   if (
     typeof navigator !== "undefined" &&
     navigator.onLine === false &&
@@ -140,6 +148,7 @@ async function request(path, options = {}) {
     detach?.();
   }
 
+  if (signature && response.status !== 502 && response.status !== 503) pendingAIRequests.delete(signature);
   if (!response.ok) throw normalizeError(data, response.status, `Request failed (${response.status}).`);
   return data;
 }

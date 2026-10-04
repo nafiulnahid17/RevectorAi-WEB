@@ -7,7 +7,9 @@ const { execFileSync } = require("node:child_process");
 
 (async () => {
   const base = process.env.REVECTOR_TEST_URL || "http://127.0.0.1:8787";
-  const out = path.resolve("samples/web-workspace-review");
+  const out = path.resolve(
+    process.env.REVECTOR_QA_DIR || "test-results/workflow",
+  );
   await fs.mkdir(out, { recursive: true });
 
   const browser = await chromium.launch({
@@ -51,7 +53,9 @@ const { execFileSync } = require("node:child_process");
 
   await page.goto(base);
   await page.getByText("Engine connected", { exact: true }).waitFor();
-  await page.getByRole("heading", { name: "Upload Artwork", exact: true }).waitFor();
+  await page
+    .getByRole("heading", { name: "Upload Artwork", exact: true })
+    .waitFor();
 
   const engineStatuses = page.locator(".engine-card");
   assert.equal(await engineStatuses.count(), 2);
@@ -64,9 +68,14 @@ const { execFileSync } = require("node:child_process");
     1,
   );
 
-  const voicesAtStart = await page.evaluate(() => window.__revectorVoice.slice());
+  await page.locator(".bootstrap-overlay").waitFor({ state: "hidden" });
+  const voicesAtStart = await page.evaluate(() =>
+    window.__revectorVoice.slice(),
+  );
   assert.ok(
-    voicesAtStart.includes("Welcome to ReVector AI. Upload your artwork to begin."),
+    voicesAtStart.includes(
+      "Welcome to ReVector AI by JerseyOS. Server connected. Engine connected. Let's create production-ready vectors.",
+    ),
     "Welcome voice should run once after a real successful boot",
   );
 
@@ -78,33 +87,36 @@ const { execFileSync } = require("node:child_process");
     }
     await route.continue();
   });
-  await page.locator("#file-input").setInputFiles(path.resolve("public/assets/sample-layout.png"));
+  await page
+    .locator("#file-input")
+    .setInputFiles(path.resolve("public/assets/sample-layout.png"));
   await page.getByText("Uploading Artwork...", { exact: true }).waitFor();
-  await page.getByText("Preparing your file for processing.", { exact: true }).waitFor();
+  await page
+    .getByText("Preparing your file for processing.", { exact: true })
+    .waitFor();
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor({ timeout: 120000 });
 
-  const pid = await page.evaluate(() => localStorage.getItem("revector.project"));
+  const pid = await page.evaluate(() =>
+    localStorage.getItem("revector.project"),
+  );
   assert.ok(pid);
 
   const projectAfterPrepare = await (
     await page.request.get(base + "/api/revector/projects/" + pid)
   ).json();
   assert.equal(projectAfterPrepare.state, "PART_REVIEW_READY");
-  assert.deepEqual(
-    Object.keys(projectAfterPrepare.slots).sort(),
-    [
-      "BACK_BODY",
-      "BACK_COLLAR",
-      "BOTTOM_TRIM",
-      "FRONT_BODY",
-      "FRONT_COLLAR",
-      "LEFT_SLEEVE",
-      "RIGHT_SLEEVE",
-      "TOP_TRIM",
-    ],
-  );
+  assert.deepEqual(Object.keys(projectAfterPrepare.slots).sort(), [
+    "BACK_BODY",
+    "BACK_COLLAR",
+    "BOTTOM_TRIM",
+    "FRONT_BODY",
+    "FRONT_COLLAR",
+    "LEFT_SLEEVE",
+    "RIGHT_SLEEVE",
+    "TOP_TRIM",
+  ]);
 
   assert.equal(
     await page.getByText("AI Production Mockup", { exact: true }).count(),
@@ -119,7 +131,10 @@ const { execFileSync } = require("node:child_process");
 
   let extras = page.locator(".compact-parts button");
   const initialExtras = await extras.count();
-  assert.ok(initialExtras >= 2, "Deterministic sample should expose separate components");
+  assert.ok(
+    initialExtras >= 2,
+    "Deterministic sample should expose separate components",
+  );
 
   const assignments = [
     { name: "Front Body", type: "front_body", width: "520", height: "700" },
@@ -129,7 +144,10 @@ const { execFileSync } = require("node:child_process");
   for (const assignment of assignments) {
     extras = page.locator(".compact-parts button");
     const before = await extras.count();
-    assert.ok(before > 0, "A component must remain available for classification");
+    assert.ok(
+      before > 0,
+      "A component must remain available for classification",
+    );
     await extras.first().click();
     await page.locator('[name="part-name"]').fill(assignment.name);
     await page.locator('[name="part-type"]').selectOption(assignment.type);
@@ -139,7 +157,8 @@ const { execFileSync } = require("node:child_process");
       .getByRole("button", { name: "Save & Confirm Part", exact: true })
       .click();
     await page.waitForFunction(
-      (expected) => document.querySelectorAll(".compact-parts button").length === expected,
+      (expected) =>
+        document.querySelectorAll(".compact-parts button").length === expected,
       before - 1,
     );
   }
@@ -148,9 +167,12 @@ const { execFileSync } = require("node:child_process");
   while ((await extras.count()) > 0) {
     const before = await extras.count();
     await extras.first().click();
-    await page.getByRole("button", { name: "Remove Part", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Remove Part", exact: true })
+      .click();
     await page.waitForFunction(
-      (expected) => document.querySelectorAll(".compact-parts button").length === expected,
+      (expected) =>
+        document.querySelectorAll(".compact-parts button").length === expected,
       before - 1,
     );
     extras = page.locator(".compact-parts button");
@@ -161,14 +183,21 @@ const { execFileSync } = require("node:child_process");
     const before = await blankButtons.count();
     await blankButtons.first().click();
     await page.waitForFunction(
-      (expected) => document.querySelectorAll('[data-action="leave-blank"]').length === expected,
+      (expected) =>
+        document.querySelectorAll('[data-action="leave-blank"]').length ===
+        expected,
       before - 1,
     );
     blankButtons = page.locator('[data-action="leave-blank"]');
   }
 
-  await page.screenshot({ path: path.join(out, "01-eight-part-review.png"), fullPage: true });
-  const confirmButton = page.getByRole("button", { name: /Confirm Parts/ }).last();
+  await page.screenshot({
+    path: path.join(out, "01-eight-part-review.png"),
+    fullPage: true,
+  });
+  const confirmButton = page
+    .getByRole("button", { name: /Confirm Parts/ })
+    .last();
   assert.equal(await confirmButton.isEnabled(), true);
   await confirmButton.click();
 
@@ -184,14 +213,20 @@ const { execFileSync } = require("node:child_process");
   assert.equal(finalProject.validation.embedded_rasters, 0);
   assert.ok(finalProject.validation.vector_paths > 0);
 
-  const voicesAfterValidation = await page.evaluate(() => window.__revectorVoice.slice());
+  const voicesAfterValidation = await page.evaluate(() =>
+    window.__revectorVoice.slice(),
+  );
   assert.ok(
-    voicesAfterValidation.includes("Validation passed. Your vector files are ready."),
+    voicesAfterValidation.includes(
+      "Validation passed. Your vector files are ready.",
+    ),
     "Validation-passed voice should be emitted from actual PASS state",
   );
 
   await page.locator('[data-action="navigate"][data-step="3"]').click();
-  await page.getByRole("heading", { name: "Vector Parts", exact: true }).waitFor();
+  await page
+    .getByRole("heading", { name: "Vector Parts", exact: true })
+    .waitFor();
   await page.locator(".vector-part").first().click();
   await page.waitForFunction(() => document.querySelector("#vector-art svg"));
   const shape = page.locator("#vector-art .editable-shape").first();
@@ -224,7 +259,10 @@ const { execFileSync } = require("node:child_process");
   await page
     .getByRole("heading", { name: "Validation Completed", exact: true })
     .waitFor();
-  assert.equal(await page.getByText("PASS", { exact: true }).count() > 0, true);
+  assert.equal(
+    (await page.getByText("PASS", { exact: true }).count()) > 0,
+    true,
+  );
   assert.equal(await page.getByText("Layers", { exact: true }).count(), 0);
 
   await page.locator('[data-action="navigate"][data-step="5"]').click();
@@ -235,7 +273,9 @@ const { execFileSync } = require("node:child_process");
     1,
   );
   assert.equal(
-    await page.getByRole("button", { name: /Download Production Pack/ }).count(),
+    await page
+      .getByRole("button", { name: /Download Production Pack/ })
+      .count(),
     1,
   );
   assert.equal(await page.getByText(/Download Full Pattern/i).count(), 0);
@@ -263,6 +303,70 @@ const { execFileSync } = require("node:child_process");
   assert.ok(/<svg\b/.test(svg));
   assert.ok(!/<(?:\w+:)?image\b|data:image\//i.test(svg));
 
+  // Use the tool's actual per-part EPS/PDF workflow, then independent strict parsers.
+  if (finalProject.capabilities?.inkscape !== false) {
+    await page.locator('[data-format="eps"]').click();
+    await page.locator('[data-format="pdf"]').click();
+    const formatDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: /Download Selected Parts/ }).click();
+    const formats = await formatDownload;
+    const archive = path.join(out, "selected-part-formats.zip");
+    await formats.saveAs(archive);
+    await page.waitForFunction(
+      () =>
+        !document.querySelector('[data-action="download-selected"]').disabled,
+    );
+    const dir = path.join(out, "part-formats");
+    await fs.mkdir(dir, { recursive: true });
+    execFileSync("unzip", ["-o", archive, "-d", dir]);
+    const walk = async (root) => {
+      const files = [];
+      for (const item of await fs.readdir(root, { withFileTypes: true })) {
+        const file = path.join(root, item.name);
+        if (item.isDirectory()) files.push(...(await walk(file)));
+        else files.push(file);
+      }
+      return files;
+    };
+    const files = await walk(dir),
+      pdf = files.find((file) => file.endsWith(".pdf")),
+      eps = files.find((file) => file.endsWith(".eps"));
+    assert.ok(pdf && eps, "Both requested vector formats must actually exist");
+    const pdfInfo = execFileSync("pdfinfo", [pdf], { encoding: "utf8" });
+    assert.match(pdfInfo, /Pages:\s+1/);
+    const rasters = execFileSync("pdfimages", ["-list", pdf], {
+      encoding: "utf8",
+    });
+    assert.equal(
+      rasters.trim().split("\n").length,
+      2,
+      "PDF must have no raster image rows",
+    );
+    execFileSync("gs", [
+      "-q",
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-dSAFER",
+      "-sDEVICE=nullpage",
+      eps,
+    ]);
+    const reopened = path.join(out, "reopened-pdf.svg");
+    execFileSync(
+      "inkscape",
+      [
+        pdf,
+        "--export-text-to-path",
+        "--export-type=svg",
+        "--export-filename=" + reopened,
+      ],
+      { stdio: "pipe" },
+    );
+    const geometry = await fs.readFile(reopened, "utf8");
+    assert.ok(/<path\b/.test(geometry));
+    assert.ok(!/<image\b|data:image\//i.test(geometry));
+    await page.locator('[data-format="eps"]').click();
+    await page.locator('[data-format="pdf"]').click();
+  }
   await page.getByRole("button", { name: "Select All", exact: true }).click();
   const packPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Download Production Pack/ }).click();
@@ -280,12 +384,18 @@ const { execFileSync } = require("node:child_process");
   await context.setOffline(true);
   await page.getByText("Connection Lost", { exact: true }).waitFor();
   assert.equal(
-    await page.getByText("Internet connection is unavailable.", { exact: true }).count() > 0,
+    (await page
+      .getByText("Internet connection is unavailable.", { exact: true })
+      .count()) > 0,
     true,
   );
-  const projectDuringOffline = await page.evaluate(() => localStorage.getItem("revector.project"));
+  const projectDuringOffline = await page.evaluate(() =>
+    localStorage.getItem("revector.project"),
+  );
   assert.equal(projectDuringOffline, pid);
-  const offlineVoices = await page.evaluate(() => window.__revectorVoice.slice());
+  const offlineVoices = await page.evaluate(() =>
+    window.__revectorVoice.slice(),
+  );
   assert.ok(
     offlineVoices.some((text) => text.includes("Connection lost")),
     "Offline state should produce one short error voice",
@@ -303,26 +413,41 @@ const { execFileSync } = require("node:child_process");
   await page.getByRole("button", { name: "Yes, Help Me", exact: true }).click();
   await page.locator(".assistant-guidance").waitFor();
   assert.equal(
-    await page.getByRole("button", { name: "Retry Connection", exact: true }).count() > 0,
+    (await page
+      .getByRole("button", { name: "Retry Connection", exact: true })
+      .count()) > 0,
     true,
     "Offline assistant should expose the supported reconnect action",
   );
-  const repeatedOfflineVoices = await page.evaluate(() =>
-    window.__revectorVoice.filter((text) => text.includes("Connection lost")).length,
+  const repeatedOfflineVoices = await page.evaluate(
+    () =>
+      window.__revectorVoice.filter((text) => text.includes("Connection lost"))
+        .length,
   );
-  assert.equal(repeatedOfflineVoices, 1, "The same offline error should be voiced only once");
-  await page.getByRole("button", { name: "Close assistant", exact: true }).click();
+  assert.equal(
+    repeatedOfflineVoices,
+    1,
+    "The same offline error should be voiced only once",
+  );
+  await page
+    .getByRole("button", { name: "Close assistant", exact: true })
+    .click();
   await context.setOffline(false);
   await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30000 });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: path.join(out, "02-mobile.png"), fullPage: true });
+  await page.screenshot({
+    path: path.join(out, "02-mobile.png"),
+    fullPage: true,
+  });
   const mobileOverflow = await page.evaluate(() => ({
     fits: document.documentElement.scrollWidth <= innerWidth + 1,
     viewport: innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
     offenders: [...document.querySelectorAll("body *")]
-      .filter((element) => element.getBoundingClientRect().right > innerWidth + 1)
+      .filter(
+        (element) => element.getBoundingClientRect().right > innerWidth + 1,
+      )
       .slice(0, 8)
       .map((element) => ({
         tag: element.tagName,
@@ -334,7 +459,8 @@ const { execFileSync } = require("node:child_process");
   assert.equal(
     mobileOverflow.fits,
     true,
-    "Mobile viewport should not overflow horizontally: " + JSON.stringify(mobileOverflow),
+    "Mobile viewport should not overflow horizontally: " +
+      JSON.stringify(mobileOverflow),
   );
 
   const unexpectedBrowserErrors = errors.filter(

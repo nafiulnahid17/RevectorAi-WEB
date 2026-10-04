@@ -3,3 +3,11 @@ ENGINE_ORIGIN=http://127.0.0.1:8000
 ALLOW_INSECURE_LOCAL_ENGINE=true
 ENGINE_API_KEY=
 SESSION_SIGNING_KEY=
+
+# Optional Control Backend V1: all blank preserves signed anonymous development mode.
+# Any partial Supabase configuration fails closed. Server-side only; never bundle keys.
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+# Set only with verified catalog prices; internal credits per USD.
+CREDITS_PER_USD=

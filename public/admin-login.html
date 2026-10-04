@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#07111d" />
-    <title>ReVector — Production Workspace</title>
+    <title>ReVector — Support & Operations Console</title>
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjZDZhZjY0Ii8+PHBhdGggZD0ibTggMjAtMSA1IDUtMUwyNSAxMWwtNS01TDggMjBabTEwLTEyIDUgNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDkxNTIzIiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+Cg==" type="image/svg+xml" />
     <style>
 /* System fallback keeps the workspace functional without third-party network requests. */
@@ -2393,132 +2393,7 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
 </style>
   </head>
   <body>
-    <div id="app"><header class="topbar">
-      <div class="brand"><span class="brand-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L20 8l-4-4L4 16Zm11-11 4 4"/></svg></span><h1>ReVector</h1></div>
-      <div class="topbar-center" aria-hidden="true"></div>
-      <div class="right">
-        <button class="quiet" data-action="new-project"  >New Artwork</button>
-        <div class="profile-control"><button type="button" data-account="menu" class="avatar-button" aria-label="Open profile menu" aria-expanded="false">◎</button></div>
-        <button class="icon-button menu-button" data-action="menu-toggle"  aria-label="Open JerseyOS menu"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-      </div>
-
-    </header>
-
-    <section class="connection-status" aria-label="Connection status" role="status">
-    <div class="connection-segments">
-      <div class="connection-segment pending" data-connection="server">
-            <span class="status-light" aria-hidden="true"></span>
-            <span>Server connecting</span>
-
-          </div><div class="connection-segment pending" data-connection="engine">
-            <span class="status-light" aria-hidden="true"></span>
-            <span>Engine connecting</span>
-
-          </div><div class="connection-segment pending" data-connection="tool">
-            <span class="status-light" aria-hidden="true"></span>
-            <span>Tool connecting</span>
-
-          </div>
-    </div>
-    <span class="connection-summary ">Connecting...</span>
-  </section>
-
-
-    <div class="production-shell"><nav class="stepper" aria-label="Processing workflow">
-      <button class="step active" data-action="navigate" data-step="0" ><span class="step-number">1</span><span><strong>Upload</strong><small>Current step</small></span></button><button class="step " data-action="navigate" data-step="1" disabled><span class="step-number">2</span><span><strong>Analyze</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="1" disabled><span class="step-number">3</span><span><strong>Enhance</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="1" disabled><span class="step-number">4</span><span><strong>Mockup</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="2" disabled><span class="step-number">5</span><span><strong>Detect Parts</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="3" disabled><span class="step-number">6</span><span><strong>Vectorize</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="4" disabled><span class="step-number">7</span><span><strong>Validate</strong><small>Upcoming</small></span></button><button class="step " data-action="navigate" data-step="5" disabled><span class="step-number">8</span><span><strong>Download</strong><small>Upcoming</small></span></button>
-    </nav><div class="production-content">
-
-    <div class="workspace">
-      <aside class="card sidebar stack artwork-settings">
-    <div class="section-kicker">Artwork Setup</div>
-    <h2>Artwork Setup</h2>
-    <div class="project-form stack">
-      <label>Art Name<input name="project-name" type="text" value="Untitled artwork" maxlength="120" ></label>
-      <label>Vector Strategy
-        <select name="vector-mode" >
-          <option value="color" selected>Color trace</option><option value="precision" >Precision shapes</option><option value="mono" >Single-color logo</option><option value="reconstruction" >Layer reconstruction</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="divider"></div>
-    <h3>Artwork Details</h3>
-    <div class="presets three">
-      <button class="" data-action="preset"  data-value="FAST" aria-pressed="false">Low</button><button class="selected" data-action="preset"  data-value="BALANCED" aria-pressed="true">Medium</button><button class="" data-action="preset"  data-value="ULTRA" aria-pressed="false">Max</button>
-    </div>
-    <p class="small muted preset-copy">
-      Balanced artwork detail, clean paths and production-ready accuracy. Recommended for most jersey artwork.
-
-    </p>
-
-    <div class="divider"></div>
-    <h3>Processing</h3>
-    <label class="checkbox"><input type="checkbox" name="noise" checked >Reduce image noise</label>
-    <label class="checkbox"><input type="checkbox" name="colors" checked >Preserve source colors</label>
-    <label class="checkbox"><input type="checkbox" name="ocr"  >Detect text (OCR)</label>
-    <div class="divider"></div>
-    <div class="stack engine-statuses">
-      <div class="engine-card neutral">
-    <div class="row between">
-      <strong>Primary AI Engine</strong>
-      <span class="badge neutral">Inactive</span>
-    </div>
-    <p class="small muted">Not configured.</p>
-  </div>
-      <div class="engine-card neutral">
-    <div class="row between">
-      <strong>Fallback AI Engine</strong>
-      <span class="badge neutral">Inactive</span>
-    </div>
-    <p class="small muted">Not configured.</p>
-  </div>
-    </div>
-  </aside>
-      <main class="main-column">
-    <section class="card stack upload-card">
-      <div>
-        <div class="section-kicker">Source</div>
-        <h2>Upload Artwork</h2>
-        <p class="muted">Upload a jersey photo or flat artwork. ReVector keeps AI references separate from final vector geometry.</p>
-      </div>
-      <div class="dropzone " id="dropzone">
-        <div class="upload-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg></div>
-        <h2>Drop your artwork here</h2>
-        <p class="small muted">JPG, PNG, WEBP • Up to 50 MB</p>
-        <div class="row wrap upload-actions">
-              <button class="primary" data-action="upload" disabled ><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg> Choose Artwork</button>
-              <button class="" data-action="noop" disabled title="Available Soon">Use Template</button>
-              <button class="" data-action="noop" disabled title="Available Soon">Use Existing Image</button>
-            </div>
-      </div>
-    </section>
-    <section class="card stack requirements-card">
-    <div class="row between">
-      <div>
-        <h2>Part Sizes</h2>
-        <p class="small muted">Optional production measurements.</p>
-      </div>
-      <button class="quiet" data-action="add-requirement"  >+ Add Part Size</button>
-    </div>
-    <div class="requirements">
-      <div class="requirement requirements-head"><span>PART</span><span>WIDTH (mm)</span><span>HEIGHT (mm)</span><span></span></div>
-      <p class="muted small">No physical sizes supplied. Measurements are never inferred from the artwork.</p>
-    </div>
-
-  </section>
-  </main>
-      <aside class="card inspector stack">
-            <div class="section-kicker">Production Principles</div>
-            <h2>AI understands. Engine measures.</h2>
-            <p class="small muted">AI may analyze, enhance and create an intermediate mockup. ReVector Engine owns boundaries, vector geometry, validation and part exports.</p>
-            <div class="divider"></div>
-            <strong>Eight logical slots</strong>
-            <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim Strip.</p>
-          </aside>
-    </div>
-    <footer class="bottom-bar"><p class="small muted">Your original artwork is preserved by the engine.</p><div class="actions"></div></footer>
-    </div></div>
-</div>
+    <div id="app"><div class="account-login admin-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Support & Operations Console</div><h1>Admin Sign In</h1><p class="muted">Authorized administrators and support staff only.</p><form class="account-form" data-account-form="admin-login"><label class="account-field"><span>Admin Email</span><input name="email" type="email" value="" required autocomplete="username"></label><label class="account-field"><span>Password</span><input name="password" type="password" value="" required autocomplete="current-password"></label><button class="primary" type="submit" >Sign In to Admin Console</button></form></section></div></div>
     <input
       id="file-input"
       type="file"

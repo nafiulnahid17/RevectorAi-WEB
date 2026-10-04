@@ -1,3 +1,5 @@
+import { account, currentPath } from "./account-model.js";
+import { accountMarkup, profileMenu } from "./account-views.js";
 import {
   types,
   stages,
@@ -979,7 +981,16 @@ function uploadStatusDialog() {
   </div>`;
 }
 
+let renderedAccountMarker = null;
 function render() {
+  const accountView = accountMarkup();
+  if (accountView) {
+    const marker = currentPath() + ":" + account.revision;
+    if (marker !== renderedAccountMarker) app.innerHTML = accountView;
+    renderedAccountMarker = marker;
+    return;
+  }
+  renderedAccountMarker = null;
   const p = state.project;
   const max = highestStep();
   app.innerHTML = `<header class="topbar">
@@ -987,23 +998,25 @@ function render() {
       <div class="topbar-center" aria-hidden="true"></div>
       <div class="right">
         ${btn("New Artwork", "new-project", "quiet")}
+        ${profileMenu()}
         ${btn(icon("menu"), "menu-toggle", "icon-button menu-button", false, 'aria-label="Open JerseyOS menu"')}
       </div>
       ${menuPopover()}
     </header>
+    ${state.initialBootstrap && state.connecting ? `<div class="bootstrap-overlay" role="status" aria-live="polite"><div class="bootstrap-card"><span class="bootstrap-mark">R</span><h1>ReVector AI</h1><div class="section-kicker">Inside JerseyOS</div><p>Initializing Production Workspace</p><div class="bootstrap-status"><span class="spinner"></span>${state.connections.server!=="connected"?"Connecting Server":state.connections.engine!=="connected"?"Checking Engine":!state.aiCapabilities?"Checking AI":"Preparing Workspace"}</div></div></div>` : ""}
     ${connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
-    <nav class="stepper" aria-label="Processing workflow">
-      ${stages
-        .map(
-          (stageName, index) => `<button class="step ${state.step === index ? "active" : index < state.step ? "complete" : ""}" data-action="navigate" data-step="${index}" ${index > max ? "disabled" : ""}>
-            <span class="step-number">${index < state.step ? icon("check") : index + 1}</span>
-            <span><strong>${stageName}</strong><small>${state.step === index ? "Current step" : index < state.step ? "Complete" : "Upcoming"}</small></span>
-          </button>`,
-        )
-        .join("")}
-    </nav>
+    <div class="production-shell"><nav class="stepper" aria-label="Processing workflow">
+      ${[["Upload",0],["Analyze",1],["Enhance",1],["Mockup",1],["Detect Parts",2],["Vectorize",3],["Validate",4],["Download",5]].map(([label,index],n)=>{
+        const metadataKey = {Analyze:"analysis",Enhance:"enhancement",Mockup:"mockup"}[label];
+        const done = metadataKey && label !== "Analyze" ? Boolean(p?.ai_metadata?.[metadataKey]?.provider) : index < state.step || Boolean(p?.ai_metadata?.[metadataKey]?.provider);
+        const event = state.job?.process_event?.event;
+        const phases = {Analyze:"ANALYZING_ARTWORK",Enhance:"ENHANCING_ARTWORK",Mockup:"CREATING_PATTERN_MOCKUP"};
+        const active = index === state.step && (!metadataKey || event === phases[label] || (label === "Analyze" && ![phases.Enhance,phases.Mockup].includes(event)));
+        return `<button class="step ${active?"active":done?"complete":""}" data-action="navigate" data-step="${index}" ${index>max?"disabled":""}><span class="step-number">${done?icon("check"):n+1}</span><span><strong>${label}</strong><small>${done?"Complete":active?"Current step":metadataKey&&state.step>1?"Not used":"Upcoming"}</small></span></button>`;
+      }).join("")}
+    </nav><div class="production-content">
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
       : ""}
@@ -1027,11 +1040,12 @@ function render() {
             <p class="small muted">AI may analyze, enhance and create an intermediate mockup. ReVector Engine owns boundaries, vector geometry, validation and part exports.</p>
             <div class="divider"></div>
             <strong>Eight logical slots</strong>
-            <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim.</p>
+            <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim Strip.</p>
           </aside>`
         : ""}
     </div>
     ${footer()}
+    </div></div>
     ${errorAssistant()}`;
 
   bindCanvas();

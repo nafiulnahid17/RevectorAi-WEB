@@ -39,7 +39,9 @@ const path = require('node:path');
     const html = await (await owner.request.get(base)).text();
     assert.ok(!html.includes('ENGINE_API_KEY') && !html.includes('SESSION_SIGNING_KEY'));
     const report = { session_http_only: true, owner_header_spoof_blocked: true, project_isolation: true, artifact_isolation: true, job_isolation: true, cancellation_isolation: true, deletion_isolation: true, cross_origin_mutation_blocked: true, worker_source_private: true, credentials_absent_from_html: true };
-    await fs.writeFile('samples/web-workspace/security-verification.json', JSON.stringify(report, null, 2) + '\n');
+    const output = process.env.REVECTOR_QA_DIR || 'test-results/security';
+    await fs.mkdir(output, { recursive: true });
+    await fs.writeFile(path.join(output, 'security-verification.json'), JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify(report));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -23,9 +23,9 @@ are size-bounded. Redirects to other servers are rejected.
 
 An independent signing secret protects HttpOnly, Secure, SameSite=Lax anonymous
 session cookies. Sessions expire after seven days of inactivity. Keep the cookie
-to access previous projects; clearing it loses access. This is session isolation,
-not account login or credit/rate-limit enforcement. Add JerseyOS identity or
-Cloudflare Access before restricting a commercial deployment. Existing ownerless
+to access previous projects; clearing it loses access. This legacy mode is session isolation. Configuring Control Backend V1 enables
+invite-only Supabase login, private account data, credit reservations and separate
+operations sessions; see the setup guide below. Existing ownerless
 engine projects require an explicit administrator migration.
 
 Secrets do not enter the static build. The browser receives no engine URL/key.
@@ -111,7 +111,8 @@ from project validation: True Vector exports require zero embedded raster artwor
 ## Development and verification
 
 Edit modular sources under `src/`; run `npm run build` to regenerate
-`public/index.html` and the matching Worker script-hash manifest. Commit both.
+`public/index.html`, `public/admin-login.html` and the matching Worker script-hash
+manifest. Commit all three.
 Static sample images are inputs, not fake vector exports.
 
 ```bash
@@ -123,6 +124,29 @@ REVECTOR_TEST_URL=http://127.0.0.1:8787 node scripts/browser-security.cjs
 ```
 
 Set `CHROMIUM_PATH` if Chromium is installed elsewhere. Browser tests store
-screenshots, actual exports and factual reports in `samples/web-workspace`.
+screenshots, actual exports and factual reports in ignored `test-results/`; set
+`REVECTOR_QA_DIR` for an external output directory.
 Engine unit/integration tests remain in the engine repository. A hosted URL must
 be verified against the real deployed engine before claiming successful deployment.
+
+## Account controls and separate operations console
+
+The user profile dropdown opens private `/dashboard` account sections. Administrators
+and support staff use a separate `/admin/login` and `/admin` console with its own
+session. User login never grants an operations session. Financial and global APIs
+require server-side ADMIN authorization; SUPPORT is limited to ticket operations.
+
+The Worker now includes Control Backend V1 using Supabase Auth, RLS-protected
+account data, an atomic credit ledger, manual top-up/model requests, support
+conversations, and engine-metadata usage accounting. With Supabase unconfigured,
+account screens report unavailable services and the existing anonymous tool remains
+available. Partial configuration fails closed. No production Supabase configuration
+or OpenAI integration is included in this change.
+
+See [setup, security, billing and complete API contract](docs/control/README.md),
+[repository audit](docs/control/AUDIT.md) and [verification scope](docs/control/VERIFICATION.md).
+
+The interface uses the approved dark navy/gold workstation theme, retains the
+8-stage production rail and eight canonical jersey slots, and downloads individual
+parts/production packs. Native AI export remains unavailable. True-vector validation
+and all production geometry remain the Railway engine's responsibility.

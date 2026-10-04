@@ -14,13 +14,13 @@ vm.runInNewContext(
   fs.readFileSync(process.argv[2], "utf8"),
   {
     document,
-    location: { protocol: "about:", origin: "null" },
+    location: { protocol: "about:", origin: "null", pathname: process.argv[3] || "/" },
     setTimeout,
     clearTimeout,
     REVECTOR_PRERENDER: true,
   },
   { timeout: 5000 },
 );
-if (!app.innerHTML.includes("Upload Artwork"))
+if (!app.innerHTML.includes(process.argv[3] ? "Admin Sign In" : "Upload Artwork"))
   throw new Error("Initial workspace did not render");
 process.stdout.write(app.innerHTML);

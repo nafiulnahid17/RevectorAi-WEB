@@ -8,10 +8,14 @@
     "dev": "npm run build && wrangler dev --ip 127.0.0.1 --port 8787",
     "test": "npm run build && node --test tests/*.test.js",
     "deploy": "npm run build && wrangler deploy",
-    "check": "node --check src/model.js && node --check src/error-catalog.js && node --check src/api.js && node --check src/actions.js && node --check src/views.js && node --check src/workspace.js && node --check worker/index.js && node --check worker/session.js"
+    "check": "node scripts/check.cjs",
+    "test:browser:account": "node scripts/browser-account.cjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "esbuild": "0.25.12",
+    "playwright": "1.55.0",
+    "prettier": "3.6.2",
     "wrangler": "4.40.2"
   }
 }

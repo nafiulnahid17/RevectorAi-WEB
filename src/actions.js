@@ -96,10 +96,10 @@ async function upload(file) {
     const data = new FormData();
     data.append("project_id", state.project.project_id);
     data.append("file", file, file.name);
-    data.append("auto_prepare", "true");
+    data.append("auto_prepare", "false");
 
     const uploaded = await request("/upload", { method: "POST", body: data });
-    const preparationJob = uploaded.preparation_job;
+    const preparationJob = uploaded.preparation_job || await post("/prepare", { project_id: state.project.project_id });
     state.project = uploaded;
     state.uploadMeta = {
       name: file.name,

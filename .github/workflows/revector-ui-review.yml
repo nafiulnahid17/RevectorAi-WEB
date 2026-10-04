@@ -1,9 +1,13 @@
-name: ReVector UI Review
+name: ReVector WEB Verification
 
 on:
   push:
     branches:
+      - main
       - revector-ui-ux-upgrade-20261004
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,12 +29,22 @@ jobs:
         run: npm test
       - name: Install browser test runtime
         run: |
-          npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Standalone browser preview smoke
         run: |
           CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
           CHROMIUM_PATH="$CHROME" node scripts/browser-preview-smoke.cjs
+
+      - name: Separate account and admin browser tests (test-only fixtures)
+        run: |
+          CHROME="$(find "$HOME/.cache/ms-playwright" -type f -name chrome | head -1)"
+          CHROMIUM_PATH="$CHROME" node scripts/browser-account.cjs
+      - name: Upload frontend QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-qa
+          path: test-results/
 
   engine-browser:
     needs: frontend
@@ -62,7 +76,6 @@ jobs:
       - name: Install web and engine dependencies
         run: |
           npm ci
-          npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
           python -m venv engine/.venv
           engine/.venv/bin/pip install --upgrade pip
@@ -74,20 +87,24 @@ jobs:
         run: npm run build
       - name: Start approved engine and secured local Worker
         env:
-          REVECTOR_API_KEY: review-engine-key-0123456789abcdef0123456789abcdef
           REVECTOR_ALLOW_UNAUTHENTICATED: "false"
-          REVECTOR_DATA_DIR: ${{ github.workspace }}/engine/data/ui-review
+          REVECTOR_DATA_DIR: ${{ runner.temp }}/revector-ui-review
+          PYTHONDONTWRITEBYTECODE: "1"
         run: |
+          TEST_ENGINE_KEY="$(openssl rand -hex 32)"
+          TEST_SESSION_KEY="$(openssl rand -hex 32)"
+          export REVECTOR_API_KEY="$TEST_ENGINE_KEY"
           (
             cd engine
             .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8012 > ../engine-review.log 2>&1 &
             echo $! > ../engine-review.pid
           )
-          cat > .dev.vars <<'EOF'
+          umask 077
+          cat > .dev.vars <<EOF
           ENGINE_ORIGIN=http://127.0.0.1:8012
           ALLOW_INSECURE_LOCAL_ENGINE=true
-          ENGINE_API_KEY=review-engine-key-0123456789abcdef0123456789abcdef
-          SESSION_SIGNING_KEY=review-session-key-0123456789abcdef0123456789abcdef
+          ENGINE_API_KEY=$TEST_ENGINE_KEY
+          SESSION_SIGNING_KEY=$TEST_SESSION_KEY
           EOF
           npx wrangler dev --local --ip 127.0.0.1 --port 8787 > worker-review.log 2>&1 &
           echo $! > worker-review.pid
@@ -112,10 +129,14 @@ jobs:
       - name: Show service logs on failure
         if: failure()
         run: |
-          echo "=== engine ==="
           tail -n 250 engine-review.log || true
-          echo "=== worker ==="
           tail -n 250 worker-review.log || true
+      - name: Upload production workflow QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-browser-qa
+          path: test-results/
       - name: Stop local services
         if: always()
         run: |

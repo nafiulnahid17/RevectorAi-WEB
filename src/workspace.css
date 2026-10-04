@@ -47,7 +47,7 @@ a {
 }
 button {
   border: 1px solid var(--border);
-  background: white;
+  background: var(--panel);
   border-radius: 8px;
   padding: 10px 14px;
   color: var(--ink);
@@ -68,7 +68,7 @@ button:hover:not(:disabled) {
   color: white;
 }
 .primary:hover:not(:disabled) {
-  background: #5c30d5;
+  background: #ba944e;
   border-color: #5c30d5;
 }
 .quiet {
@@ -165,12 +165,12 @@ p {
   color: var(--amber);
 }
 .badge.error {
-  background: #fce8ec;
+  background: #301d27;
   color: var(--red);
 }
 .topbar {
   height: 64px;
-  background: white;
+  background: var(--panel);
   display: flex;
   align-items: center;
   gap: 20px;
@@ -221,7 +221,7 @@ p {
   place-items: center;
 }
 .stepper {
-  background: white;
+  background: var(--panel);
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 18px;
@@ -282,7 +282,7 @@ p {
   padding-bottom: 105px;
 }
 .card {
-  background: white;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
@@ -314,7 +314,7 @@ select {
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 0 10px;
-  background: white;
+  background: var(--panel);
   color: var(--ink);
   min-width: 0;
 }
@@ -433,7 +433,7 @@ input[type="checkbox"] {
   color: var(--amber);
 }
 .note.error {
-  background: #fce8ec;
+  background: #301d27;
   color: var(--red);
 }
 .parts-list {
@@ -639,7 +639,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 5px;
-  background: white;
+  background: var(--panel);
 }
 .report-metrics {
   display: flex;
@@ -736,7 +736,7 @@ input[type="checkbox"] {
   text-align: right;
 }
 .bottom-bar {
-  background: white;
+  background: var(--panel);
   border-top: 1px solid var(--border);
   position: fixed;
   bottom: 0;
@@ -858,7 +858,7 @@ dialog pre {
 .status-error {
   padding: 12px 24px;
   border-bottom: 1px solid #eed0d6;
-  background: #fce8ec;
+  background: #301d27;
   color: var(--red);
   display: flex;
   gap: 12px;
@@ -1069,7 +1069,7 @@ dialog pre {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 28px;
-  background: white;
+  background: var(--panel);
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
@@ -1185,7 +1185,7 @@ dialog pre {
   right: 22px;
   width: 280px;
   z-index: 30;
-  background: white;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
@@ -1202,21 +1202,21 @@ dialog pre {
 }
 .engine-card {
   border: 1px solid var(--border);
-  background: #fbfbfd;
+  background: var(--panel);
   border-radius: 10px;
   padding: 12px;
 }
 .engine-card.success {
   border-color: #cce7da;
-  background: #fbfffd;
+  background: #0c241f;
 }
 .engine-card.warning {
   border-color: #f0d9af;
-  background: #fffdf8;
+  background: #292419;
 }
 .engine-card.error {
   border-color: #efcbd2;
-  background: #fffafb;
+  background: #2a1924;
 }
 .upload-card {
   min-height: 470px;
@@ -1236,7 +1236,7 @@ dialog pre {
   gap: 4px;
   min-width: 0;
   text-align: left;
-  background: white;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
@@ -1338,10 +1338,10 @@ dialog pre {
 }
 .slot-card.uncertain,
 .slot-card.missing {
-  background: #fffdf8;
+  background: #292419;
 }
 .slot-card.confirmed {
-  background: #fbfffd;
+  background: #0c241f;
 }
 .slot-preview {
   width: 92px;
@@ -1500,7 +1500,7 @@ dialog pre {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 5px;
-  background: white;
+  background: var(--panel);
 }
 .source-reference-card {
   display: grid;
@@ -1657,7 +1657,7 @@ dialog pre {
   max-height: min(74vh, 500px);
 }
 .assistant-card {
-  background: white;
+  background: var(--panel);
   border: 1px solid #ded7ee;
   border-radius: 18px;
   box-shadow: 0 24px 72px rgba(32, 33, 45, 0.2);
@@ -1875,7 +1875,7 @@ dialog pre {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: white;
+  background: var(--panel);
   border: 1px solid #ded7ee;
   border-radius: 14px;
   padding: 16px 18px;
@@ -1919,3 +1919,57 @@ dialog pre {
     grid-template-columns: 1fr;
   }
 }
+
+/* ReVector / JerseyOS approved workstation theme. */
+:root{color-scheme:dark;--brand:#d6af64;--brand-soft:#272419;--ink:#e6edf5;--muted:#8d9cab;--surface:#07111d;--canvas:#040b14;--panel:#0c1928;--border:#243246;--green:#50c99b;--green-soft:#112d28;--amber:#e5be70;--amber-soft:#302719;--red:#f08591}
+body{background:radial-gradient(ellipse at 45% 0,#11243a 0,#07111d 65%);min-height:100vh}
+button,input,select,textarea{color:var(--ink)}
+button,input,select,textarea,.card,.topbar,.menu-popover,.connection-strip,.file-facts span,.part-card,.part-mini{background:var(--panel)}
+input,select,textarea{border:1px solid var(--border);border-radius:7px;padding:10px;max-width:100%}
+button:hover:not(:disabled){background:#152538;border-color:#827047}
+.primary,.primary:hover:not(:disabled){background:linear-gradient(135deg,#dbb76e,#c69b50);border-color:#ddb872;color:#141a22;font-weight:650;box-shadow:0 3px 12px #0003}
+.brand-mark,.step.active .step-number,.step.complete .step-number{color:#07111d;background:var(--brand)}
+.topbar{height:70px;background:#081422;border-bottom-color:#354153}
+.brand h1{letter-spacing:-.6px;font-size:21px}
+.topbar .right{overflow:visible}
+.production-shell{display:grid;grid-template-columns:176px minmax(0,1fr);max-width:2080px;margin:auto}
+.production-content{min-width:0}
+.stepper{background:#091523;display:flex;flex-direction:column;gap:9px;padding:24px 12px;border-right:1px solid var(--border);border-bottom:0;align-self:stretch;min-width:0}
+.step{padding:12px 9px;border-radius:8px;min-width:0;white-space:normal;flex-shrink:0}
+.step.active{border:1px solid #8e713f;background:linear-gradient(95deg,#30291c,#181e24)}
+.step:hover:not(:disabled){background:#162438}
+.step.active strong{color:#eed093}
+.step-number{border:1px solid var(--border);font-size:12px;width:25px;height:25px}
+.step strong{font-size:12px}
+.workspace{grid-template-columns:220px minmax(0,1fr) 240px;padding:18px;gap:14px;min-width:0}
+.workspace>*{min-width:0}
+.card{box-shadow:0 5px 24px #0002;border-color:#28354a}
+.section-kicker{color:#b99b60;letter-spacing:1.2px}
+.dropzone{background:linear-gradient(140deg,#101f32,#091522);border-color:#344960}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--brand);background:#1d2630}
+.engine-card{background:#0a1624;border-color:var(--border)}
+.engine-card.success{background:#0c241f;border-color:#24513e}
+.engine-card.warning{background:#292419;border-color:#675435}
+.engine-card.error{background:#2a1924;border-color:#69404a}
+.badge.red,.status-error,.account-error{background:#301d27;color:#f6b3bc;border-color:#704351}
+.status-error{margin:14px 18px 0}
+.preview{background:#06101b}
+.preview-frame,.artwork-stage{border-color:var(--border)}
+.workspace-footer,.bottom-bar{background:#091522;border-color:var(--border)}
+.brand-soft,.selected{border-color:#7a6641}
+.profile-control{position:relative;flex-shrink:0}
+.avatar-button{width:36px;height:36px;border-radius:50%;padding:0;border-color:#9a7b45;color:#ecd094;background:#28251d}
+.profile-dropdown{position:absolute;right:0;top:45px;z-index:65;width:240px;background:#0d1a2a;border:1px solid #49516a;border-radius:12px;box-shadow:0 18px 50px #0009;padding:14px;display:flex;flex-direction:column;gap:3px}
+.profile-dropdown strong,.profile-dropdown small{padding:3px 10px;overflow-wrap:anywhere}
+.profile-dropdown small{color:var(--muted);margin-bottom:10px}
+.profile-dropdown a,.profile-dropdown button{display:block;text-align:left;padding:10px;border-radius:6px;color:var(--ink);text-decoration:none;background:transparent;border:0}
+.profile-dropdown a:hover,.profile-dropdown button:hover{background:#263044;color:#ebce91}
+.bootstrap-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:#050d18ed;backdrop-filter:blur(10px)}
+.bootstrap-card{text-align:center;width:min(460px,90vw);padding:44px 36px;border:1px solid #80683d;border-radius:18px;background:linear-gradient(145deg,#132337,#09121e);box-shadow:0 30px 90px #0007}
+.bootstrap-mark{display:inline-grid;place-items:center;width:66px;height:66px;border:1px solid #b79659;color:#dfbd7b;font-size:36px;border-radius:16px;margin-bottom:15px}
+.bootstrap-card h1{font-size:29px;margin:3px 0 10px;letter-spacing:-.7px}.bootstrap-card p{color:var(--muted)}
+.bootstrap-status{margin-top:26px;color:#dfbd7b;display:flex;justify-content:center;align-items:center;gap:10px}
+@media(min-width:1800px){.workspace{grid-template-columns:250px minmax(0,1fr) 290px;padding:24px;gap:20px}.production-shell{grid-template-columns:200px minmax(0,1fr)}}
+@media(max-width:1250px) and (min-width:981px){.production-shell{grid-template-columns:150px minmax(0,1fr)}.workspace{grid-template-columns:190px minmax(0,1fr)}.workspace>.inspector:last-child{display:none}.stepper{padding:20px 8px}}
+@media(max-width:980px){.production-shell{display:block}.stepper{display:flex;flex-direction:row;overflow-x:auto;padding:12px;border-right:0;border-bottom:1px solid var(--border);gap:5px}.step{min-width:116px}.workspace{grid-template-columns:180px minmax(0,1fr)}.workspace>.inspector:last-child{display:none}}
+@media(max-width:640px){.workspace{display:flex;flex-direction:column;padding:12px}.workspace>*{width:100%}.topbar{padding:0 12px;gap:8px}.topbar .brand{width:auto}.topbar .right{gap:7px}.stepper{max-width:100vw}.profile-dropdown{right:0}.brand h1{font-size:19px}}

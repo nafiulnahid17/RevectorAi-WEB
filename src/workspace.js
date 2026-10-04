@@ -1,3 +1,5 @@
+import { registerAccountRenderer, initializeAccount, accountClick, accountSubmit, loadAccountPage } from "./account-controller.js";
+import { accountPage } from "./account-model.js";
 import {
   state,
   app,
@@ -18,12 +20,16 @@ import {
 import { render } from "./views.js";
 import { upload, savePart, handle, updateSettings } from "./actions.js";
 
+registerAccountRenderer(render);
+
 function handleFailure(error) {
   if (!state.error || state.error.message !== error.message) presentError(error);
   render();
 }
 
 app.addEventListener("click", (event) => {
+  const accountTarget = event.target.closest("[data-account]");
+  if (accountTarget) { event.preventDefault(); accountClick(accountTarget).catch(handleFailure); return; }
   const target = event.target.closest("[data-action]");
   if (!target) return;
   event.preventDefault();
@@ -32,6 +38,7 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (event.target.dataset.accountForm) { accountSubmit(event.target).catch(handleFailure); return; }
   if (event.target.id === "part-form") savePart().catch(handleFailure);
 });
 
@@ -92,8 +99,8 @@ app.addEventListener("change", (event) => {
       ["Back Body", "back_body"],
       ["Front Collar", "front_collar"],
       ["Back Collar", "back_collar"],
-      ["Top Trim", "top_trim"],
-      ["Bottom Trim", "bottom_trim"],
+      ["Top Trim Strip", "top_trim"],
+      ["Bottom Trim Strip", "bottom_trim"],
     ].find(([label]) => label.toLowerCase() === String(requirement.name).toLowerCase());
     if (name) name.value = requirement.name;
     if (type) type.value = slot?.[1] || "unknown";
@@ -168,11 +175,11 @@ function welcomeVoice() {
   try {
     if (sessionStorage.getItem("revector.voice.welcome")) return;
     sessionStorage.setItem("revector.voice.welcome", "1");
-    safeSpeak("Welcome to ReVector AI. Upload your artwork to begin.");
+    safeSpeak("Welcome to ReVector AI by JerseyOS. Server connected. Engine connected. Let's create production-ready vectors.");
   } catch {
     if (!state.voice.welcomeSpoken) {
       state.voice.welcomeSpoken = true;
-      safeSpeak("Welcome to ReVector AI. Upload your artwork to begin.");
+      safeSpeak("Welcome to ReVector AI by JerseyOS. Server connected. Engine connected. Let's create production-ready vectors.");
     }
   }
 }
@@ -292,6 +299,7 @@ async function reconnectOnly() {
 async function boot() {
   if (boot.running) return;
   boot.running = true;
+  const started = Date.now();
   state.connecting = true;
   state.health = null;
   state.connections = { server: "pending", engine: "pending", tool: "pending" };
@@ -299,6 +307,8 @@ async function boot() {
   render();
 
   try {
+    await initializeAccount();
+    if (accountPage()) return;
     if (location.protocol === "file:" || location.origin === "null") {
       throw clientError(
         "ENGINE_UNAVAILABLE",
@@ -341,6 +351,7 @@ async function boot() {
       state.step = stepFromProject();
     }
 
+    if (state.initialBootstrap) await new Promise(resolve => setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))));
     welcomeVoice();
   } catch (error) {
     const failed = state.connections.server !== "connected" ? "server" : "engine";
@@ -354,6 +365,7 @@ async function boot() {
     state.connectionMessage =
       failed === "server" ? "Server connection failed." : "Engine connection failed.";
   } finally {
+    state.initialBootstrap = false;
     state.connecting = false;
     boot.running = false;
     render();
@@ -393,5 +405,9 @@ if (typeof window !== "undefined") {
   });
 }
 
+if (typeof window !== "undefined") {
+  window.addEventListener("revector:open-workspace", () => { if (!state.health) { state.initialBootstrap = true; boot(); } });
+  window.addEventListener("popstate", () => { if (!accountPage() && !state.health) boot(); else { render(); loadAccountPage(); } });
+}
 if (globalThis.REVECTOR_PRERENDER) render();
 else boot();
