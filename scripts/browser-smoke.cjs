@@ -1,190 +1,317 @@
-/* Runs the real API-backed browser workflow, including downloaded file assertions. */
+/* Real Worker + approved engine workflow. No production deployment or live AI credentials. */
 const { chromium } = require("playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
 (async () => {
   const base = process.env.REVECTOR_TEST_URL || "http://127.0.0.1:8787";
-  const out = path.resolve("samples/web-workspace");
+  const out = path.resolve("samples/web-workspace-review");
   await fs.mkdir(out, { recursive: true });
+
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
     args: ["--no-sandbox"],
   });
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 1050 },
     acceptDownloads: true,
   });
+  const page = await context.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("response", (r) => {
-    if (r.status() >= 400) console.error("HTTP failure", r.status(), r.url());
+
+  await page.addInitScript(() => {
+    window.__revectorVoice = [];
+    class TestUtterance {
+      constructor(text) {
+        this.text = text;
+        this.rate = 1;
+        this.pitch = 1;
+      }
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: TestUtterance,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        speak(utterance) {
+          window.__revectorVoice.push(utterance.text);
+        },
+      },
+    });
   });
-  page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(msg.text());
+
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
   });
+
   await page.goto(base);
   await page.getByText("Engine connected", { exact: true }).waitFor();
-  await page.screenshot({
-    path: path.join(out, "01-input.png"),
-    fullPage: true,
-  });
+  await page.getByRole("heading", { name: "Upload Artwork", exact: true }).waitFor();
+
+  const engineStatuses = page.locator(".engine-card");
+  assert.equal(await engineStatuses.count(), 2);
+  assert.equal(
+    await page.getByText("Primary AI Engine", { exact: true }).count(),
+    1,
+  );
+  assert.equal(
+    await page.getByText("Fallback AI Engine", { exact: true }).count(),
+    1,
+  );
+
+  const voicesAtStart = await page.evaluate(() => window.__revectorVoice.slice());
+  assert.ok(
+    voicesAtStart.includes("Welcome to ReVector AI. Upload your artwork to begin."),
+    "Welcome voice should run once after a real successful boot",
+  );
+
+  await page.locator("#file-input").setInputFiles(path.resolve("public/assets/sample-layout.png"));
   await page
-    .getByRole("button", { name: "Multi-part sample", exact: true })
-    .click();
-  await page
-    .getByRole("heading", { name: "Source uploaded", exact: true })
-    .waitFor();
-  await page
-    .getByRole("button", { name: "Analyze input", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Detect parts", exact: true })
-    .waitFor();
-  await page.getByRole("button", { name: "Detect parts", exact: true }).click();
-  await page
-    .getByRole("heading", { name: "Detected layout", exact: true })
-    .waitFor();
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  const rows = page.locator(".part-row");
-  const count = await rows.count();
-  assert.ok(count >= 2, "Multi-panel sample should detect separate components");
-  for (let i = 0; i < count; i++) {
-    await rows.nth(i).click();
-    await page
-      .locator('[name="part-name"]')
-      .fill(i === 0 ? "Front body" : "Back body");
-    await page
-      .locator('[name="part-type"]')
-      .selectOption(i === 0 ? "front_body" : "back_body");
-    await page.locator('[name="part-width"]').fill(i === 0 ? "520" : "540");
-    await page
-      .getByRole("button", { name: "Save & confirm part", exact: true })
-      .click();
-    await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  }
-  await page.screenshot({
-    path: path.join(out, "02-parts.png"),
-    fullPage: true,
-  });
-  await page
-    .getByRole("button", { name: "Vectorize confirmed parts", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Continue to download", exact: true })
+    .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor({ timeout: 120000 });
-  await page.waitForFunction(() => document.querySelector("#vector-art svg"));
-  const shape = page.locator("#vector-art .editable-shape").first();
-  await shape.click({ force: true });
-  await page.locator("#shape-color").fill("#ee3344");
-  await page
-    .getByRole("button", { name: "Apply color & revalidate", exact: true })
-    .click();
-  await page.waitForFunction(
-    () => !document.querySelector(".busy-banner"),
-    {},
-    { timeout: 120000 },
-  );
-  await page.screenshot({
-    path: path.join(out, "03-vector-review.png"),
-    fullPage: true,
-  });
-  const pid = await page.evaluate(() =>
-    localStorage.getItem("revector.project"),
-  );
-  const project = await (
+
+  const pid = await page.evaluate(() => localStorage.getItem("revector.project"));
+  assert.ok(pid);
+
+  const projectAfterPrepare = await (
     await page.request.get(base + "/api/revector/projects/" + pid)
   ).json();
-  assert.equal(project.true_vector_ready, true);
-  assert.equal(project.validation.embedded_rasters, 0);
-  assert.ok(project.validation.path_count > 0);
-  assert.ok(project.manual_changes.some((c) => c.action === "vector_fill"));
+  assert.equal(projectAfterPrepare.state, "PART_REVIEW_READY");
+  assert.deepEqual(
+    Object.keys(projectAfterPrepare.slots).sort(),
+    [
+      "BACK_BODY",
+      "BACK_COLLAR",
+      "BOTTOM_TRIM",
+      "FRONT_BODY",
+      "FRONT_COLLAR",
+      "LEFT_SLEEVE",
+      "RIGHT_SLEEVE",
+      "TOP_TRIM",
+    ],
+  );
+
+  assert.equal(
+    await page.getByText("AI Production Mockup", { exact: true }).count(),
+    0,
+    "No AI mockup should be fabricated when AI providers are not configured",
+  );
+  assert.equal(
+    await page.getByText("Editable SVG Ready", { exact: true }).count(),
+    0,
+    "Review references must not be labelled as editable vectors",
+  );
+
+  let extras = page.locator(".compact-parts button");
+  const initialExtras = await extras.count();
+  assert.ok(initialExtras >= 2, "Deterministic sample should expose separate components");
+
+  const assignments = [
+    { name: "Front Body", type: "front_body", width: "520", height: "700" },
+    { name: "Back Body", type: "back_body", width: "520", height: "700" },
+  ];
+
+  for (const assignment of assignments) {
+    extras = page.locator(".compact-parts button");
+    assert.ok((await extras.count()) > 0, "A component must remain available for classification");
+    await extras.first().click();
+    await page.locator('[name="part-name"]').fill(assignment.name);
+    await page.locator('[name="part-type"]').selectOption(assignment.type);
+    await page.locator('[name="part-width"]').fill(assignment.width);
+    await page.locator('[name="part-height"]').fill(assignment.height);
+    await page
+      .getByRole("button", { name: "Save & Confirm Part", exact: true })
+      .click();
+    await page.getByText("8-Part Review", { exact: true }).waitFor();
+  }
+
+  extras = page.locator(".compact-parts button");
+  while ((await extras.count()) > 0) {
+    await extras.first().click();
+    await page.getByRole("button", { name: "Remove Part", exact: true }).click();
+    await page.getByText("8-Part Review", { exact: true }).waitFor();
+    extras = page.locator(".compact-parts button");
+  }
+
+  let blankButtons = page.locator('[data-action="leave-blank"]');
+  while ((await blankButtons.count()) > 0) {
+    await blankButtons.first().click();
+    await page.getByText("8-Part Review", { exact: true }).waitFor();
+    blankButtons = page.locator('[data-action="leave-blank"]');
+  }
+
+  await page.screenshot({ path: path.join(out, "01-eight-part-review.png"), fullPage: true });
+  const confirmButton = page.getByRole("button", { name: /Confirm Parts/ }).last();
+  assert.equal(await confirmButton.isEnabled(), true);
+  await confirmButton.click();
+
   await page
-    .getByRole("button", { name: "Continue to download", exact: true })
-    .click();
-  await page.screenshot({
-    path: path.join(out, "04-downloads.png"),
-    fullPage: true,
-  });
-  const dlPromise = page.waitForEvent("download");
-  await page.locator('[data-action="download-part"]').first().click();
-  const download = await dlPromise;
-  await download.saveAs(path.join(out, "individual.svg"));
-  const svg = await fs.readFile(path.join(out, "individual.svg"), "utf8");
-  assert.ok(svg.includes("mm"));
-  assert.ok(!/<(?:\w+:)?image\b|data:image\//i.test(svg));
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  await page.locator('[name="export-part"]').nth(1).uncheck();
-  const selectedPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Selected parts ZIP", exact: true })
-    .click();
-  await (await selectedPromise).saveAs(path.join(out, "selected-parts.zip"));
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  await page.locator('[data-format="pdf"]').click();
-  const pdfPromise = page.waitForEvent("download");
-  await page.locator('[data-action="download-part"]').first().click();
-  await (await pdfPromise).saveAs(path.join(out, "individual.pdf"));
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  await page.locator('[data-format="eps"]').click();
-  const epsPromise = page.waitForEvent("download");
-  await page.locator('[data-action="download-part"]').first().click();
-  await (await epsPromise).saveAs(path.join(out, "individual.eps"));
-  const eps = await fs.readFile(path.join(out, "individual.eps"), "utf8");
-  assert.ok(eps.startsWith("%!PS-Adobe"), "EPS must be an actual PostScript export");
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  await page.locator('[data-format="pdf"]').click();
-  const zipPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download full ZIP", exact: true })
-    .first()
-    .click();
-  await (await zipPromise).saveAs(path.join(out, "production-pack.zip"));
-  await page.waitForFunction(() => !document.querySelector(".busy-banner"));
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({
-    path: path.join(out, "05-mobile.png"),
-    fullPage: true,
-  });
+    .getByRole("heading", { name: "Download", exact: true })
+    .waitFor({ timeout: 180000 });
+
+  const finalProject = await (
+    await page.request.get(base + "/api/revector/projects/" + pid)
+  ).json();
+  assert.equal(finalProject.true_vector_ready, true);
+  assert.equal(finalProject.validation.status, "PASS");
+  assert.equal(finalProject.validation.embedded_rasters, 0);
+  assert.ok(finalProject.validation.vector_paths > 0);
+
+  const voicesAfterValidation = await page.evaluate(() => window.__revectorVoice.slice());
   assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth + 1,
-    ),
+    voicesAfterValidation.includes("Validation passed. Your vector files are ready."),
+    "Validation-passed voice should be emitted from actual PASS state",
+  );
+
+  await page.locator('[data-action="navigate"][data-step="3"]').click();
+  await page.getByRole("heading", { name: "Vector Parts", exact: true }).waitFor();
+  await page.locator(".vector-part").first().click();
+  await page.waitForFunction(() => document.querySelector("#vector-art svg"));
+  const shape = page.locator("#vector-art .editable-shape").first();
+  assert.ok((await shape.count()) > 0, "A real SVG shape should be selectable");
+  await shape.click({ force: true });
+  const selectedShapeId = await page.locator("#shape-label").textContent();
+  assert.ok(selectedShapeId && selectedShapeId !== "None");
+  await page.locator("#shape-color").fill("#ee3344");
+  await page
+    .getByRole("button", { name: "Apply Color & Revalidate", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Apply Color & Revalidate", exact: true })
+    .waitFor({ timeout: 120000 });
+
+  const edited = await (
+    await page.request.get(base + "/api/revector/projects/" + pid)
+  ).json();
+  assert.equal(edited.true_vector_ready, true);
+  assert.ok(
+    edited.manual_changes.some((change) => change.action === "vector_fill"),
+    "Color edit must be persisted by the engine",
+  );
+
+  await page.locator('[data-action="review-view"][data-view="paths"]').click();
+  await page.getByText("Diagnostic Paths", { exact: true }).waitFor();
+  assert.equal(await page.getByText("Compare", { exact: true }).count(), 0);
+
+  await page.locator('[data-action="navigate"][data-step="4"]').click();
+  await page
+    .getByRole("heading", { name: "Validation Completed", exact: true })
+    .waitFor();
+  assert.equal(await page.getByText("PASS", { exact: true }).count() > 0, true);
+  assert.equal(await page.getByText("Layers", { exact: true }).count(), 0);
+
+  await page.locator('[data-action="navigate"][data-step="5"]').click();
+  await page.getByRole("heading", { name: "Download", exact: true }).waitFor();
+
+  assert.equal(
+    await page.getByRole("button", { name: /Download Selected Parts/ }).count(),
+    1,
+  );
+  assert.equal(
+    await page.getByRole("button", { name: /Download Production Pack/ }).count(),
+    1,
+  );
+  assert.equal(await page.getByText(/Download Full Pattern/i).count(), 0);
+  assert.equal(await page.getByText(/Download Master/i).count(), 0);
+  assert.equal(await page.getByText(/Download Complete Pattern/i).count(), 0);
+
+  const aiFormat = page.locator('[data-format="ai"]');
+  assert.equal(await aiFormat.isDisabled(), true);
+  assert.match((await aiFormat.getAttribute("title")) || "", /unavailable/i);
+
+  await page.getByRole("button", { name: "Deselect All", exact: true }).click();
+  const partChecks = page.locator('[name="export-part"]');
+  await partChecks.first().check();
+
+  const selectedDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download Selected Parts/ }).click();
+  const selectedDownload = await selectedDownloadPromise;
+  const selectedPath = path.join(out, "selected-part.svg");
+  await selectedDownload.saveAs(selectedPath);
+  const svg = await fs.readFile(selectedPath, "utf8");
+  assert.ok(/<svg\b/.test(svg));
+  assert.ok(!/<(?:\w+:)?image\b|data:image\//i.test(svg));
+
+  await page.getByRole("button", { name: "Select All", exact: true }).click();
+  const packPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download Production Pack/ }).click();
+  const pack = await packPromise;
+  const packPath = path.join(out, "production-pack.zip");
+  await pack.saveAs(packPath);
+  const listing = execFileSync("unzip", ["-l", packPath], { encoding: "utf8" });
+  assert.doesNotMatch(listing, /master\.(svg|pdf|eps|png)/i);
+  assert.doesNotMatch(listing, /assembled/i);
+
+  await context.setOffline(true);
+  await page.getByText("Connection Lost", { exact: true }).waitFor();
+  assert.equal(
+    await page.getByText("Internet connection is unavailable.", { exact: true }).count() > 0,
+    true,
+  );
+  const projectDuringOffline = await page.evaluate(() => localStorage.getItem("revector.project"));
+  assert.equal(projectDuringOffline, pid);
+  const offlineVoices = await page.evaluate(() => window.__revectorVoice.slice());
+  assert.ok(
+    offlineVoices.some((text) => text.includes("Connection lost")),
+    "Offline state should produce one short error voice",
+  );
+
+  await page.getByRole("button", { name: "No", exact: true }).click();
+  assert.equal(await page.locator(".assistant-card").count(), 0);
+  await context.setOffline(false);
+  await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30000 });
+
+  const assistantPill = page.locator(".assistant-pill");
+  if (await assistantPill.count()) {
+    await assistantPill.click();
+    await page.getByRole("button", { name: "Yes, Help Me", exact: true }).click();
+    await page.locator(".assistant-guidance").waitFor({ timeout: 30000 });
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: path.join(out, "02-mobile.png"), fullPage: true });
+  assert.equal(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+    true,
     "Mobile viewport should not overflow horizontally",
   );
+
   assert.deepEqual(errors, []);
   await fs.writeFile(
     path.join(out, "verification.json"),
     JSON.stringify(
       {
         project_id: pid,
-        detected_parts: count,
-        validation: project.validation,
+        initial_components: initialExtras,
+        slots: finalProject.slots,
+        validation: finalProject.validation,
+        voice_messages: voicesAfterValidation,
+        native_ai_export_disabled: true,
+        master_export_absent: true,
         browser_errors: errors,
-        downloaded_files: [
-          "individual.svg",
-          "individual.pdf",
-          "individual.eps",
-          "selected-parts.zip",
-          "production-pack.zip",
-        ],
-        tested_viewports: ["1440x1050", "390x844"],
       },
       null,
       2,
     ),
   );
+
   console.log(
     JSON.stringify({
       project_id: pid,
-      parts: count,
-      paths: project.validation.path_count,
-      rasters: project.validation.embedded_rasters,
+      parts: finalProject.parts.length,
+      validation: finalProject.validation.status,
+      vector_paths: finalProject.validation.vector_paths,
+      master_export_absent: true,
       browser_errors: errors,
       output: out,
     }),
   );
+
   await browser.close();
 })().catch((error) => {
   console.error(error);
