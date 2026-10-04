@@ -981,6 +981,61 @@ function uploadStatusDialog() {
   </div>`;
 }
 
+function startupStage(labelText, status, pendingLabel) {
+  const normalized = status || "pending";
+  const tone =
+    normalized === "connected"
+      ? "success"
+      : normalized === "failed"
+        ? "error"
+        : normalized === "unavailable"
+          ? "muted"
+          : "pending";
+  const detail =
+    normalized === "connected"
+      ? "Ready"
+      : normalized === "failed"
+        ? "Failed"
+        : normalized === "unavailable"
+          ? "Unavailable"
+          : pendingLabel;
+  return `<div class="bootstrap-stage ${tone}">
+    <span class="bootstrap-stage-dot" aria-hidden="true"></span>
+    <span><strong>${escape(labelText)}</strong><small>${escape(detail)}</small></span>
+  </div>`;
+}
+
+function startupStages() {
+  const ai =
+    !state.aiCapabilities
+      ? "pending"
+      : state.aiCapabilities.primary_configured ||
+          state.aiCapabilities.fallback_configured
+        ? "connected"
+        : "unavailable";
+  const workspace =
+    state.health &&
+    state.connections.server === "connected" &&
+    state.connections.engine === "connected" &&
+    state.connections.tool === "connected"
+      ? "connected"
+      : "pending";
+  return [
+    startupStage("Server", state.connections.server, "Connecting"),
+    startupStage("Engine", state.connections.engine, "Checking"),
+    startupStage("AI", ai, "Checking"),
+    startupStage("Workspace", workspace, "Preparing"),
+  ].join("");
+}
+
+function startupCurrentLabel() {
+  if (state.connections.server !== "connected") return "Connecting Server";
+  if (state.connections.engine !== "connected") return "Checking Engine";
+  if (state.connections.tool !== "connected") return "Checking Tool";
+  if (!state.aiCapabilities) return "Checking AI";
+  return "Preparing Workspace";
+}
+
 let renderedAccountMarker = null;
 function render() {
   const accountView = accountMarkup();
@@ -994,7 +1049,7 @@ function render() {
   const p = state.project;
   const max = highestStep();
   app.innerHTML = `<header class="topbar">
-      <div class="brand"><span class="brand-mark">${icon("pen")}</span><h1>ReVector</h1></div>
+      <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>A Tool of Jersey OS</small></div></div>
       <div class="topbar-center" aria-hidden="true"></div>
       <div class="right">
         ${btn("New Artwork", "new-project", "quiet")}
@@ -1003,7 +1058,18 @@ function render() {
       </div>
       ${menuPopover()}
     </header>
-    ${state.initialBootstrap && state.connecting ? `<div class="bootstrap-overlay" role="status" aria-live="polite"><div class="bootstrap-card"><span class="bootstrap-mark">R</span><h1>ReVector AI</h1><div class="section-kicker">Inside JerseyOS</div><p>Initializing Production Workspace</p><div class="bootstrap-status"><span class="spinner"></span>${state.connections.server!=="connected"?"Connecting Server":state.connections.engine!=="connected"?"Checking Engine":!state.aiCapabilities?"Checking AI":"Preparing Workspace"}</div></div></div>` : ""}
+    ${state.initialBootstrap && state.connecting ? `<div class="bootstrap-overlay" role="status" aria-live="polite">
+      <div class="bootstrap-grid" aria-hidden="true"></div>
+      <div class="bootstrap-card">
+        <img class="bootstrap-logo" src="/assets/revector-ai-logo.svg" alt="ReVector AI">
+        <span class="bootstrap-badge">A Tool of Jersey OS</span>
+        <h1>Launching ReVector AI</h1>
+        <p>Preparing your production workspace</p>
+        <div class="bootstrap-progress" aria-hidden="true"><span></span></div>
+        <div class="bootstrap-stages">${startupStages()}</div>
+        <div class="bootstrap-status"><span class="spinner"></span>${escape(startupCurrentLabel())}</div>
+      </div>
+    </div>` : ""}
     ${connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
