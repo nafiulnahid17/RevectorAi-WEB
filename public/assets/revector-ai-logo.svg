@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">ReVector AI</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b56c08"/>
+      <stop offset=".28" stop-color="#ffbf27"/>
+      <stop offset=".55" stop-color="#fff3ad"/>
+      <stop offset=".76" stop-color="#e3a21b"/>
+      <stop offset="1" stop-color="#9f5700"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff5c7"/>
+      <stop offset=".5" stop-color="#ffd34f"/>
+      <stop offset="1" stop-color="#b86a00"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)" fill="url(#gold)" stroke="url(#edge)" stroke-width="7" stroke-linejoin="round">
+    <path d="M78 76h220c93 0 151 55 151 137 0 72-44 122-112 135l103 132H326L221 343h-65v137H78V218h78v62h132c48 0 79-26 79-67 0-42-31-69-79-69H156L78 76Z"/>
+    <path d="M239 303h92l109 177H329L215 332Z"/>
+  </g>
+</svg>
