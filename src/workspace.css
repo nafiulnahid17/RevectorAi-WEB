@@ -1964,12 +1964,37 @@ button:hover:not(:disabled){background:#152538;border-color:#827047}
 .profile-dropdown small{color:var(--muted);margin-bottom:10px}
 .profile-dropdown a,.profile-dropdown button{display:block;text-align:left;padding:10px;border-radius:6px;color:var(--ink);text-decoration:none;background:transparent;border:0}
 .profile-dropdown a:hover,.profile-dropdown button:hover{background:#263044;color:#ebce91}
-.bootstrap-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:#050d18ed;backdrop-filter:blur(10px)}
-.bootstrap-card{text-align:center;width:min(460px,90vw);padding:44px 36px;border:1px solid #80683d;border-radius:18px;background:linear-gradient(145deg,#132337,#09121e);box-shadow:0 30px 90px #0007}
-.bootstrap-mark{display:inline-grid;place-items:center;width:66px;height:66px;border:1px solid #b79659;color:#dfbd7b;font-size:36px;border-radius:16px;margin-bottom:15px}
-.bootstrap-card h1{font-size:29px;margin:3px 0 10px;letter-spacing:-.7px}.bootstrap-card p{color:var(--muted)}
-.bootstrap-status{margin-top:26px;color:#dfbd7b;display:flex;justify-content:center;align-items:center;gap:10px}
+.revector-brand{gap:11px}
+.brand-logo{width:38px;height:38px;display:block;object-fit:contain;filter:drop-shadow(0 0 12px #d6af6455)}
+.revector-brand>div{min-width:0;display:flex;flex-direction:column;gap:1px}
+.revector-brand h1{line-height:1.05}
+.revector-brand small{font-size:9px;letter-spacing:.65px;text-transform:uppercase;color:#9fb0c2;white-space:nowrap}
+.bootstrap-overlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 42%,#153964 0,#07131f 38%,#040b13 78%);backdrop-filter:blur(10px)}
+.bootstrap-overlay:before{content:"";position:absolute;inset:-28%;background:conic-gradient(from 0deg at 50% 50%,transparent 0 64%,#4d76ff24 72%,transparent 80%);animation:bootstrap-spin 11s linear infinite}
+.bootstrap-grid{position:absolute;inset:0;opacity:.28;background-image:linear-gradient(#6d8bb014 1px,transparent 1px),linear-gradient(90deg,#6d8bb014 1px,transparent 1px);background-size:42px 42px;mask-image:radial-gradient(circle at center,#000 0 45%,transparent 78%)}
+.bootstrap-card{position:relative;text-align:center;width:min(760px,92vw);padding:38px 42px 34px;border:1px solid #416b96;border-radius:24px;background:linear-gradient(180deg,#0b1d30f5,#07131ff5);box-shadow:0 0 0 1px #4d82bb28,0 30px 95px #000a,0 0 70px #2c76d01f}
+.bootstrap-logo{width:118px;height:118px;display:block;object-fit:contain;margin:0 auto 5px;filter:drop-shadow(0 0 24px #e3b14b66);animation:bootstrap-float 3s ease-in-out infinite}
+.bootstrap-badge{display:inline-flex;margin:0 auto 9px;padding:5px 10px;border:1px solid #7d693e;border-radius:999px;background:#2b2519;color:#f0ce87;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.bootstrap-card h1{font-size:34px;margin:4px 0 6px;letter-spacing:-1px}.bootstrap-card p{color:#9aacbf}
+.bootstrap-progress{height:7px;max-width:520px;margin:24px auto 22px;border:1px solid #295275;border-radius:999px;background:#06111c;overflow:hidden}
+.bootstrap-progress span{display:block;width:28%;height:100%;border-radius:999px;background:linear-gradient(90deg,#c8922e,#ffe395,#5d75ff);box-shadow:0 0 20px #e8c15b55;animation:bootstrap-slide 1.7s cubic-bezier(.6,.05,.35,.95) infinite}
+.bootstrap-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.bootstrap-stage{display:flex;align-items:center;gap:9px;text-align:left;min-width:0;padding:12px 11px;border:1px solid #203d57;border-radius:12px;background:#081725}
+.bootstrap-stage-dot{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#6d7c8c;box-shadow:0 0 0 4px #6d7c8c18}
+.bootstrap-stage strong,.bootstrap-stage small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bootstrap-stage strong{font-size:11px}.bootstrap-stage small{margin-top:2px;color:#70879e;font-size:9px}
+.bootstrap-stage.success{border-color:#285843;background:#0a211c}.bootstrap-stage.success .bootstrap-stage-dot{background:#42c88b;box-shadow:0 0 0 4px #42c88b1d,0 0 14px #42c88b55}.bootstrap-stage.success small{color:#74caa2}
+.bootstrap-stage.error{border-color:#6a3943;background:#28161e}.bootstrap-stage.error .bootstrap-stage-dot{background:#f06f82;box-shadow:0 0 0 4px #f06f8218}.bootstrap-stage.error small{color:#f3a9b4}
+.bootstrap-stage.pending .bootstrap-stage-dot{background:#7183ff;box-shadow:0 0 0 4px #7183ff18,0 0 14px #7183ff55;animation:bootstrap-pulse 1.3s ease-in-out infinite}
+.bootstrap-stage.muted{opacity:.72}
+.bootstrap-status{margin-top:18px;color:#dfbd7b;display:flex;justify-content:center;align-items:center;gap:10px;font-size:11px}
+@keyframes bootstrap-slide{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+@keyframes bootstrap-spin{to{transform:rotate(360deg)}}
+@keyframes bootstrap-float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.015)}}
+@keyframes bootstrap-pulse{0%,100%{opacity:.45;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}
 @media(min-width:1800px){.workspace{grid-template-columns:250px minmax(0,1fr) 290px;padding:24px;gap:20px}.production-shell{grid-template-columns:200px minmax(0,1fr)}}
 @media(max-width:1250px) and (min-width:981px){.production-shell{grid-template-columns:150px minmax(0,1fr)}.workspace{grid-template-columns:190px minmax(0,1fr)}.workspace>.inspector:last-child{display:none}.stepper{padding:20px 8px}}
 @media(max-width:980px){.production-shell{display:block}.stepper{display:flex;flex-direction:row;overflow-x:auto;padding:12px;border-right:0;border-bottom:1px solid var(--border);gap:5px}.step{min-width:116px}.workspace{grid-template-columns:180px minmax(0,1fr)}.workspace>.inspector:last-child{display:none}}
 @media(max-width:640px){.workspace{display:flex;flex-direction:column;padding:12px}.workspace>*{width:100%}.topbar{padding:0 12px;gap:8px}.topbar .brand{width:auto}.topbar .right{gap:7px}.stepper{max-width:100vw}.profile-dropdown{right:0}.brand h1{font-size:19px}}
+
+@media(max-width:720px){.bootstrap-card{padding:28px 18px 24px}.bootstrap-logo{width:92px;height:92px}.bootstrap-card h1{font-size:27px}.bootstrap-stages{grid-template-columns:1fr 1fr}.revector-brand small{display:none}}
+@media(prefers-reduced-motion:reduce){.bootstrap-overlay:before,.bootstrap-logo,.bootstrap-progress span,.bootstrap-stage.pending .bootstrap-stage-dot{animation:none}}
