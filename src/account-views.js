@@ -340,7 +340,7 @@ function topupPage(d) {
     <section class="ud-panel ud-topup-panel">
       <div class="ud-topup-section"><h2>1. Enter Balance Amount</h2><p>Enter the USD balance amount. The BDT equivalent uses the current administrator-configured conversion rate.</p>
         <div class="ud-amount-grid">
-          <label><span>Balance Amount (USD) *</span><div class="ud-money-input"><b>$</b><input name="topup-usd-preview" id="topup-usd-preview" type="number" min="0.0001" max="1000000" step="0.0001" placeholder="0.00" form="topup-request-form"></div></label>
+          <label><span>Balance Amount (USD) *</span><div class="ud-money-input"><b>$</b><input name="topup-usd-preview" id="topup-usd-preview" type="number" min="0.0001" max="1000000" step="0.0001" placeholder="0.00" form="topup-request-form" data-rate="${Number.isFinite(rate) ? e(rate) : ""}"></div></label>
           <label><span>Equivalent in BDT ${Number.isFinite(rate) ? `<em>Rate: 1 USD = ৳${e(rate)}</em>` : ""}</span><div class="ud-money-input bdt"><b>৳</b><input id="topup-bdt-preview" value="" placeholder="${Number.isFinite(rate) ? "0.00" : "Rate unavailable"}" readonly></div></label>
         </div>
       </div>
