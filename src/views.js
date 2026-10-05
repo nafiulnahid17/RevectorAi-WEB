@@ -1640,7 +1640,7 @@ function vectorSelectedPartPanel() {
     <dl class="vector-stat-list">
       <div><dt>Dimensions</dt><dd>${escape(dimensions(pp))}</dd></div>
       <div><dt>Vector Paths</dt><dd>${paths == null ? "Unavailable" : escape(paths)}</dd></div>
-      <div><dt>Editable Shapes</dt><dd>${shapeCount == null ? "Loading" : escape(shapeCount)}</dd></div>
+      <div><dt>Editable Shapes</dt><dd id="vector-shape-count">${shapeCount == null ? "Loading" : escape(shapeCount)}</dd></div>
       <div><dt>Anchor Points</dt><dd>${anchors == null ? "Unavailable" : escape(anchors)}</dd></div>
       <div><dt>Embedded Rasters</dt><dd>${pp?.metrics?.embedded_rasters ?? "Unavailable"}</dd></div>
     </dl>
@@ -2265,6 +2265,43 @@ function render() {
     window.dispatchEvent(new CustomEvent("revector:state-rendered"));
 }
 
+function svgShapeMeta(shape) {
+  if (!shape) return null;
+  const tag = String(shape.tagName || "").toLowerCase();
+  const rawFill = shape.getAttribute("fill") || shape.style?.fill || "";
+  let points = null;
+  if (tag === "polygon" || tag === "polyline") {
+    const raw = shape.getAttribute("points") || "";
+    const pairs = raw.trim().split(/\s+/).filter(Boolean);
+    points = pairs.length || null;
+  } else if (tag === "line") {
+    points = 2;
+  } else if (tag === "rect") {
+    points = 4;
+  }
+  const d = tag === "path" ? shape.getAttribute("d") || "" : "";
+  const commands = d ? (d.match(/[a-zA-Z]/g) || []).length : null;
+  return {
+    id: shape.id || "Unnamed shape",
+    type: tag || "svg",
+    fill: rawFill || "",
+    points,
+    commands,
+  };
+}
+
+function vectorSvgStats(svg, partId) {
+  const shapes = [
+    ...svg.querySelectorAll(
+      "path[id],rect[id],circle[id],ellipse[id],polygon[id],polyline[id],line[id]",
+    ),
+  ].filter((shape) => !shape.closest("defs") && !shape.closest('[display="none"]'));
+  return {
+    part_id: partId,
+    shapeCount: shapes.length,
+  };
+}
+
 async function loadVector() {
   const pp = part();
   const container = document.querySelector("#vector-art");
@@ -2302,29 +2339,24 @@ async function loadVector() {
     container.replaceChildren(document.importNode(svg, true));
     state.editSvg = raw;
     const live = container.firstElementChild;
+    if (!live) return;
+
+    const stats = vectorSvgStats(live, id);
+    state.vectorStats = stats;
+    const count = document.querySelector("#vector-shape-count");
+    if (count) count.textContent = String(stats.shapeCount);
+
     for (const shape of live.querySelectorAll(
       "path[id],rect[id],circle[id],ellipse[id],polygon[id],polyline[id],line[id]",
     )) {
       if (shape.closest("defs") || shape.closest('[display="none"]')) continue;
       shape.classList.add("editable-shape");
+      if (state.shape && shape.id === state.shape) shape.classList.add("selected-shape");
       shape.addEventListener("click", (event) => {
         event.stopPropagation();
-        live
-          .querySelectorAll(".selected-shape")
-          .forEach((item) => item.classList.remove("selected-shape"));
-        shape.classList.add("selected-shape");
         state.shape = shape.id;
-        const shapeLabel = document.querySelector("#shape-label");
-        if (shapeLabel) shapeLabel.textContent = shape.id;
-        const input = document.querySelector("#shape-color");
-        if (input) {
-          input.disabled = false;
-          input.value = /^#[0-9a-f]{6}$/i.test(shape.getAttribute("fill") || "")
-            ? shape.getAttribute("fill")
-            : "#6d3dee";
-        }
-        const apply = document.querySelector('[data-action="apply-fill"]');
-        if (apply) apply.disabled = false;
+        state.shapeMeta = svgShapeMeta(shape);
+        render();
       });
     }
   } catch {
@@ -2334,7 +2366,6 @@ async function loadVector() {
         "Vector Preview Unavailable. The validated SVG could not be loaded.";
   }
 }
-
 function bindCanvas() {
   const canvas = document.querySelector("#boundary-canvas");
   if (!canvas) return;
