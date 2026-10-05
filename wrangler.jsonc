@@ -3,13 +3,18 @@
   "name": "revectorai-web",
   "main": "worker/index.js",
   "compatibility_date": "2025-09-01",
+  "keep_vars": true,
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": true
   },
   "vars": {
-    "ENGINE_ORIGIN": "https://revectorai-tool-production.up.railway.app"
+    "ENGINE_ORIGIN": "https://revectorai-tool-production.up.railway.app",
+    "SUPABASE_URL": "https://sizgljfaokdwuptnuyhc.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpemdsamZhb2tkd3VwdG51eWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4Njk2NjIsImV4cCI6MjEwNjQ0NTY2Mn0.sK21nB9bnBJOFf-1S49oeCqfwMIrJz5JdS_-psz09QM"
   },
-  "observability": { "enabled": true }
+  "observability": {
+    "enabled": true
+  }
 }
