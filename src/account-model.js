@@ -3,6 +3,8 @@ export const account = {
   configured: null,
   profile: null,
   menu: false,
+  setupPrompt: false,
+  avatarVersion: 0,
   busy: false,
   error: "",
   notice: "",
@@ -29,4 +31,10 @@ export function accountPage() {
     : path === "/login"
       ? "login"
       : null;
+}
+
+export function profileSetupRequired() {
+  return Boolean(
+    account.profile?.role === "USER" && !account.profile?.profile_completed_at,
+  );
 }
