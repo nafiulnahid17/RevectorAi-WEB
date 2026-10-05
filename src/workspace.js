@@ -324,6 +324,13 @@ async function boot() {
   try {
     await initializeAccount();
     if (accountPage()) return;
+    if (account.configured !== true || !account.profile) {
+      if (state.initialBootstrap)
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, 1200 - (Date.now() - started))),
+        );
+      return;
+    }
     if (location.protocol === "file:" || location.origin === "null") {
       throw clientError(
         "ENGINE_UNAVAILABLE",
@@ -343,14 +350,6 @@ async function boot() {
           suggested_actions: ["refresh_connection", "view_error_details"],
         },
       );
-    }
-
-    if (account.configured === true && !account.profile) {
-      if (state.initialBootstrap)
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))),
-        );
-      return;
     }
 
     let savedProject;
@@ -385,7 +384,7 @@ async function boot() {
     }
 
     if (state.initialBootstrap) await new Promise(resolve => setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))));
-    if (account.profile || account.configured !== true) welcomeVoice();
+    if (account.profile) welcomeVoice();
   } catch (error) {
     const failed = state.connections.server !== "connected" ? "server" : "engine";
     state.connections[failed] = "failed";
