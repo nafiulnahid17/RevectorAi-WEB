@@ -377,36 +377,313 @@ function processingPanel(title = "Production Processing") {
   </section>`;
 }
 
-function analysisMain() {
+function finiteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizedPercent(value) {
+  const number = finiteNumber(value);
+  if (number === null || number < 0 || number > 1) return null;
+  return Math.round(number * 1000) / 10;
+}
+
+function rgbToHex(rgb) {
+  if (!Array.isArray(rgb) || rgb.length < 3) return null;
+  const channels = rgb.slice(0, 3).map((value) => {
+    const number = Math.max(0, Math.min(255, Math.round(Number(value) || 0)));
+    return number.toString(16).padStart(2, "0");
+  });
+  return "#" + channels.join("");
+}
+
+function analysisEvents() {
+  const stored = Array.isArray(state.project?.events)
+    ? state.project.events.map((event) => typeof event === "string" ? event : event?.event).filter(Boolean)
+    : [];
+  const current = state.job?.process_event?.event;
+  return { stored, current };
+}
+
+function analysisPipeline() {
+  const sequence = [
+    ["UPLOAD_RECEIVED", "File loaded"],
+    ["ANALYZING_ARTWORK", "Artwork analysis"],
+    ["ENHANCING_ARTWORK", "Image enhancement"],
+    ["CREATING_PATTERN_MOCKUP", "Production reference"],
+    ["IDENTIFYING_PARTS", "Part identification"],
+    ["REFINING_PART_BOUNDARIES", "Boundary refinement"],
+    ["PART_REVIEW_READY", "Part review preparation"],
+  ];
+  const { stored, current } = analysisEvents();
+  const observed = [...stored, current].filter(Boolean);
+  const furthest = Math.max(-1, ...observed.map((name) => sequence.findIndex(([event]) => event === name)));
+  return sequence.map(([event, text], index) => {
+    const complete = stored.includes(event) || index < furthest || (event === "UPLOAD_RECEIVED" && Boolean(state.project?.source_file));
+    const active = current === event && !["SUCCEEDED", "FAILED", "CANCELLED"].includes(state.job?.job_state);
+    const tone = complete ? "complete" : active ? "active" : "pending";
+    return `<div class="analysis-stage ${tone}">
+      <span class="analysis-stage-dot">${complete ? icon("check") : ""}</span>
+      <span><strong>${escape(text)}</strong><small>${complete ? "Complete" : active ? "In progress" : "Pending"}</small></span>
+    </div>`;
+  }).join("");
+}
+
+function analysisOverlayPreview() {
   const p = state.project;
-  const mockup = p?.ai_assets?.mockup;
-  return `<main class="main-column">
-    <section class="card stack analysis-workspace">
-      <div class="row between">
-        <div>
-          <div class="section-kicker">Automatic Preparation</div>
-          <h2>Artwork Processing</h2>
-        </div>
-        ${badge(state.busy ? "Engine Job Active" : "Preparation Complete", state.busy ? "purple" : "success")}
+  const source = p?.corrected_image || p?.working_image || p?.thumbnail;
+  if (!source)
+    return `<div class="analysis-empty-preview">${icon("file")}<span>No analysis reference is available yet.</span></div>`;
+
+  const [w, h] = correctedSize();
+  const parts = Array.isArray(p?.parts) ? p.parts : [];
+  const overlays = parts.map((pp) => {
+    if (Array.isArray(pp.polygon) && pp.polygon.length >= 3)
+      return `<polygon points="${pp.polygon.map((point) => point.join(",")).join(" ")}"></polygon>`;
+    if (Array.isArray(pp.bbox) && pp.bbox.length >= 4)
+      return `<rect x="${pp.bbox[0]}" y="${pp.bbox[1]}" width="${pp.bbox[2]}" height="${pp.bbox[3]}"></rect>`;
+    return "";
+  }).join("");
+
+  return `<div class="analysis-overlay-art">
+    <img src="${artifact(source)}" alt="Analysis reference">
+    ${overlays ? `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Detected engine boundaries">${overlays}</svg>` : ""}
+  </div>`;
+}
+
+function analysisMetricBar(title, value) {
+  const percent = normalizedPercent(value);
+  if (percent === null) return "";
+  return `<div class="analysis-quality-row">
+    <div><span>${escape(title)}</span><strong>${escape(percent)}%</strong></div>
+    <div class="analysis-quality-track"><span style="width:${percent}%"></span></div>
+  </div>`;
+}
+
+function analysisQualityRows() {
+  const q = state.project?.analysis?.quality || {};
+  const rows = [
+    analysisMetricBar("Blur score", q.blur_score),
+    analysisMetricBar("Contrast", q.contrast),
+    analysisMetricBar("Brightness", q.brightness),
+    analysisMetricBar("Noise score", q.noise_score),
+    analysisMetricBar("Possible glare", q.possible_glare_fraction),
+    analysisMetricBar("Possible shadow", q.possible_shadow_fraction),
+  ].filter(Boolean);
+  return rows.length ? rows.join("") : '<p class="analysis-empty-copy">Quality metrics are not available yet.</p>';
+}
+
+function analysisPalette() {
+  const colors = Array.isArray(state.project?.analysis?.dominant_colors)
+    ? state.project.analysis.dominant_colors
+    : [];
+  if (!colors.length)
+    return '<p class="analysis-empty-copy">No dominant colors are available yet.</p>';
+  return `<div class="analysis-palette">${colors.slice(0, 8).map((color) => {
+    const hex = rgbToHex(color?.rgb);
+    if (!hex) return "";
+    const fraction = normalizedPercent(color?.fraction);
+    return `<span class="analysis-swatch" style="--swatch:${hex}" title="${hex}${fraction === null ? "" : ` • ${fraction}%`}"></span>`;
+  }).join("")}</div>
+  <small>${colors.length} dominant color${colors.length === 1 ? "" : "s"} reported by the engine</small>`;
+}
+
+function analysisSourceCard() {
+  const p = state.project;
+  const meta = sourceMeta();
+  return `<section class="analysis-preview-card">
+    <header><span>${icon("file")}<strong>Source Artwork</strong></span>${p?.source_file ? badge("Uploaded", "success") : badge("Unavailable")}</header>
+    <div class="analysis-preview-art">
+      ${p?.working_image || p?.thumbnail
+        ? picture(p.working_image || p.thumbnail, "Source artwork")
+        : `<div class="analysis-empty-preview">${icon("file")}<span>Source preview unavailable</span></div>`}
+    </div>
+    <footer>
+      <span>${escape(meta.filename)}</span>
+      <small>${escape(meta.size)}${meta.dimensions !== "Dimensions unavailable" ? ` • ${escape(meta.dimensions)}` : ""}</small>
+    </footer>
+  </section>`;
+}
+
+function analysisReferenceCard() {
+  const parts = state.project?.parts || [];
+  return `<section class="analysis-preview-card analysis-reference-card">
+    <header><span>${icon("spark")}<strong>Analysis Preview</strong></span>${parts.length ? badge("Real Boundaries", "purple") : badge("Engine Reference")}</header>
+    <div class="analysis-preview-art">${analysisOverlayPreview()}</div>
+    <footer>
+      <span>${parts.length ? `${parts.length} detected component${parts.length === 1 ? "" : "s"}` : "Waiting for detected structure"}</span>
+      <small>${parts.length ? "Boundary overlay comes from engine geometry." : "No structure overlay is fabricated."}</small>
+    </footer>
+  </section>`;
+}
+
+function analysisProgressCard() {
+  const p = state.project;
+  const hasAnalysis = Boolean(p?.analysis && Object.keys(p.analysis).length);
+  const running = Boolean(state.busy && state.step === 1);
+  const process = running ? currentProcess() : hasAnalysis ? "Analysis data available" : "Waiting for analysis";
+  return `<section class="analysis-progress-card" aria-live="polite">
+    <div class="analysis-progress-head">
+      <div class="analysis-progress-ring ${hasAnalysis && !running ? "complete" : running ? "running" : ""}">
+        <span>${hasAnalysis && !running ? icon("check") : running ? "LIVE" : "—"}</span>
       </div>
-      <div class="split-reference">
-        <div class="preview-pane">
-          <div class="row between"><strong>Source Reference</strong>${badge("Original")}</div>
-          <div class="preview-art">${picture(p?.working_image || p?.thumbnail, "Source artwork")}</div>
+      <div><strong>Analysis Progress</strong><p>${escape(process)}</p></div>
+    </div>
+    <div class="analysis-stage-list">${analysisPipeline()}</div>
+    <div class="analysis-progress-state">
+      <span>Job state</span><strong>${escape(state.job?.job_state || p?.state || "Unavailable")}</strong>
+    </div>
+  </section>`;
+}
+
+function analysisInsights() {
+  const p = state.project;
+  const meta = sourceMeta();
+  const analysis = p?.analysis || {};
+  const q = analysis.quality || {};
+  const resolution = analysis.resolution || {};
+  const sharpness = finiteNumber(q.sharpness_laplacian_variance);
+  const blocking = normalizedPercent(q.compression_blocking_estimate);
+  const parts = Array.isArray(p?.parts) ? p.parts : [];
+  const preset = presetUiName(p?.settings?.preset || state.preset) || p?.settings?.preset || state.preset || "Unavailable";
+  const vectorMode = p?.settings?.vector_mode || state.mode || "Unavailable";
+
+  return `<section class="analysis-insights">
+    <h3>Analysis Insights</h3>
+    <div class="analysis-insight-grid">
+      <article>
+        <span class="analysis-insight-icon">${icon("file")}</span>
+        <strong>File Information</strong>
+        <dl>
+          <div><dt>File</dt><dd>${escape(meta.filename)}</dd></div>
+          <div><dt>Size</dt><dd>${escape(meta.size)}</dd></div>
+          <div><dt>Resolution</dt><dd>${Number.isFinite(Number(resolution.width)) && Number.isFinite(Number(resolution.height)) ? `${resolution.width} × ${resolution.height}px` : escape(meta.dimensions)}</dd></div>
+          <div><dt>Type</dt><dd>${escape(fileTypeFromName(meta.filename))}</dd></div>
+        </dl>
+      </article>
+      <article>
+        <span class="analysis-insight-icon">${icon("settings")}</span>
+        <strong>Quality Signals</strong>
+        <dl>
+          <div><dt>Sharpness variance</dt><dd>${sharpness === null ? "Unavailable" : sharpness.toFixed(1)}</dd></div>
+          <div><dt>Blocking estimate</dt><dd>${blocking === null ? "Unavailable" : blocking + "%"}</dd></div>
+          <div><dt>Perspective issue</dt><dd>${typeof q.perspective_issue === "boolean" ? (q.perspective_issue ? "Detected" : "Not detected") : "Unavailable"}</dd></div>
+          <div><dt>Lighting issue</dt><dd>${typeof q.lighting_issue === "boolean" ? (q.lighting_issue ? "Detected" : "Not detected") : "Unavailable"}</dd></div>
+        </dl>
+      </article>
+      <article>
+        <span class="analysis-insight-icon">${icon("file")}</span>
+        <strong>Detected Structure</strong>
+        <div class="analysis-structure-summary">
+          <b>${parts.length || "—"}</b>
+          <span>${parts.length ? `component${parts.length === 1 ? "" : "s"} currently reported` : "No detected parts available yet"}</span>
         </div>
-        <div class="preview-pane">
-          <div class="row between"><strong>AI Production Mockup</strong>${badge("Intermediate Reference", "warning")}</div>
-          <div class="preview-art">
-            ${mockup
-              ? picture(mockup, "Intermediate AI production mockup")
-              : '<div class="empty-preview">Shown only if the engine actually creates a mockup.</div>'}
-          </div>
-        </div>
+      </article>
+      <article>
+        <span class="analysis-insight-icon">${icon("spark")}</span>
+        <strong>Color Palette</strong>
+        ${analysisPalette()}
+      </article>
+      <article>
+        <span class="analysis-insight-icon">${icon("settings")}</span>
+        <strong>Processing Mode</strong>
+        <div class="analysis-mode-badge">${escape(preset)}</div>
+        <p>${escape(label(vectorMode))}</p>
+        <small>Values come from the active project settings.</small>
+      </article>
+    </div>
+  </section>`;
+}
+
+function analysisMain() {
+  return `<main class="main-column analysis-reference-main">
+    <section class="analysis-hero-copy">
+      <div>
+        <span class="analysis-step-label">Step 2 of 8</span>
+        <h1>Analyze Your Jersey Artwork</h1>
+        <p>ReVector analyzes the real source artwork for image quality, color information, structure and production preparation. Values shown below come directly from the current engine project.</p>
       </div>
-      ${processingPanel("Automatic Engine Flow")}
-      <p class="note">AI mockups are intermediate raster references. ReVector Engine owns final boundaries, vector geometry and deterministic validation.</p>
+      <div class="analysis-why-card">
+        <span class="analysis-why-icon">${icon("spark")}</span>
+        <span><strong>Why we analyze?</strong><small>To inspect source quality and prepare trustworthy structure for later vectorization.</small></span>
+        <span aria-hidden="true">›</span>
+      </div>
     </section>
+
+    <section class="analysis-primary-grid">
+      ${analysisSourceCard()}
+      ${analysisReferenceCard()}
+      ${analysisProgressCard()}
+    </section>
+
+    ${analysisInsights()}
   </main>`;
+}
+
+function analysisInspector() {
+  const p = state.project;
+  const meta = sourceMeta();
+  const analysis = p?.analysis || {};
+  const resolution = analysis.resolution || {};
+  const q = analysis.quality || {};
+  const colors = Array.isArray(analysis.dominant_colors) ? analysis.dominant_colors : [];
+  const parts = Array.isArray(p?.parts) ? p.parts : [];
+  const analysisReady = Boolean(Object.keys(analysis).length);
+  const partReviewReady = p?.state === "PART_REVIEW_READY" || parts.length > 0 && Object.values(p?.slots || {}).some((slot) => slot?.status !== "missing");
+  const analysisScale = finiteNumber(analysis.analysis_scale);
+
+  return `<aside class="analysis-inspector">
+    <header><strong>Inspector</strong><span title="Live project data">${icon("refresh")}</span></header>
+
+    <section>
+      <h3>Source File</h3>
+      <div class="analysis-inspector-source">
+        <div class="analysis-inspector-thumb">
+          ${p?.thumbnail || p?.working_image ? picture(p.thumbnail || p.working_image, "Source file") : icon("file")}
+        </div>
+        <dl>
+          <div><dt>File Name</dt><dd>${escape(meta.filename)}</dd></div>
+          <div><dt>File Size</dt><dd>${escape(meta.size)}</dd></div>
+          <div><dt>Dimensions</dt><dd>${escape(meta.dimensions)}</dd></div>
+          <div><dt>File Type</dt><dd>${escape(fileTypeFromName(meta.filename))}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section>
+      <h3>Analysis Summary</h3>
+      <div class="analysis-summary-list">
+        <div><span>${icon("ruler")} Analysis Resolution</span><strong>${Number.isFinite(Number(resolution.width)) && Number.isFinite(Number(resolution.height)) ? `${resolution.width} × ${resolution.height}` : "Unavailable"}</strong></div>
+        <div><span>${icon("file")} Detected Components</span><strong>${parts.length || "Unavailable"}</strong></div>
+        <div><span>${icon("spark")} Dominant Colors</span><strong>${colors.length || "Unavailable"}</strong></div>
+        <div><span>${icon("settings")} Analysis Scale</span><strong>${analysisScale === null ? "Unavailable" : analysisScale}</strong></div>
+        <div><span>${icon("alert")} Perspective Issue</span><strong>${typeof q.perspective_issue === "boolean" ? (q.perspective_issue ? "Detected" : "Not detected") : "Unavailable"}</strong></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Detected Structure</h3>
+      ${parts.length
+        ? `<div class="analysis-detected-parts">${parts.slice(0, 6).map((pp) => `<div>
+            <span>${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</span>
+            <small>${escape(label(pp.type))}</small>
+          </div>`).join("")}</div>`
+        : '<p class="analysis-empty-copy">No detected structure is available yet.</p>'}
+    </section>
+
+    <section>
+      <h3>Quality Metrics</h3>
+      <div class="analysis-quality-list">${analysisQualityRows()}</div>
+    </section>
+
+    <section class="analysis-complete-card ${analysisReady ? "ready" : ""}">
+      <div><strong>${analysisReady ? "Analysis Data Available" : "Analysis In Progress"}</strong>
+      <p>${partReviewReady ? "The project has real detected structure ready for review." : state.busy ? "The engine is continuing the automatic preparation flow." : "Waiting for more engine analysis data."}</p></div>
+      ${partReviewReady
+        ? btn("Open Detected Parts " + icon("chevron"), "navigate", "analysis-next-button", false, 'data-step="2"')
+        : `<button class="analysis-next-button" disabled>${state.busy ? "Enhance runs automatically" : "Waiting for engine"}</button>`}
+    </section>
+  </aside>`;
 }
 
 function correctedSize() {
@@ -1184,11 +1461,11 @@ function render() {
   renderedAccountMarker = null;
   const p = state.project;
   const max = highestStep();
-  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : ""}">
-      <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>Inside JerseyOS</small></div></div>
-      <div class="topbar-center">${state.step === 0 ? uploadHeaderStatuses() : ""}</div>
+  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : state.step === 1 ? "upload-reference-topbar analysis-reference-topbar" : ""}">
+      <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>${state.step === 1 ? "Turn jersey designs into production-ready vectors" : "Inside JerseyOS"}</small></div></div>
+      <div class="topbar-center">${state.step <= 1 ? uploadHeaderStatuses() : ""}</div>
       <div class="right">
-        ${state.step === 0 ? "" : btn("New Artwork", "new-project", "quiet")}
+        ${state.step <= 1 ? "" : btn("New Artwork", "new-project", "quiet")}
         ${profileMenu()}
         ${btn(icon("menu"), "menu-toggle", "icon-button menu-button", false, 'aria-label="Open JerseyOS menu"')}
       </div>
@@ -1206,10 +1483,10 @@ function render() {
         <div class="bootstrap-status"><span class="spinner"></span>${escape(startupCurrentLabel())}</div>
       </div>
     </div>` : ""}
-    ${state.step === 0 ? "" : connectionStatus()}
+    ${state.step <= 1 ? "" : connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
-    <div class="production-shell ${state.step === 0 ? "upload-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
+    <div class="production-shell ${state.step <= 1 ? "upload-shell" : ""} ${state.step === 1 ? "analysis-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
       ${[
         ["Upload",0,"Jersey image or design file"],
         ["Analyze",1,"Detect structure & parts"],
@@ -1231,8 +1508,8 @@ function render() {
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
       : ""}
-    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : ""}">
-      ${state.step === 0 ? "" : state.step < 2 ? settingsPanel() : state.step === 2 ? partInspector() : ""}
+    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : state.step === 1 ? "analysis-reference-workspace" : ""}">
+      ${state.step <= 1 ? "" : state.step === 2 ? partInspector() : ""}
       ${state.step === 0
         ? inputMain()
         : state.step === 1
@@ -1244,20 +1521,9 @@ function render() {
               : state.step === 4
                 ? validationMain()
                 : downloadMain()}
-      ${state.step === 0
-        ? uploadSetupPanel()
-        : state.step < 2
-          ? `<aside class="card inspector stack">
-              <div class="section-kicker">Production Principles</div>
-              <h2>AI understands. Engine measures.</h2>
-              <p class="small muted">AI may analyze, enhance and create an intermediate mockup. ReVector Engine owns boundaries, vector geometry, validation and part exports.</p>
-              <div class="divider"></div>
-              <strong>Eight logical slots</strong>
-              <p class="small muted">Left/Right Sleeve, Front/Back Body, Front/Back Collar, Top/Bottom Trim Strip.</p>
-            </aside>`
-          : ""}
+      ${state.step === 0 ? uploadSetupPanel() : state.step === 1 ? analysisInspector() : ""}
     </div>
-    ${footer()}
+    ${state.step === 1 ? "" : footer()}
     </div></div>
     ${errorAssistant()}`;
 
