@@ -157,6 +157,7 @@ function resetWorkspace() {
   state.selectedSlot = null;
   state.step = 0;
   state.preparationView = "analyze";
+  state.detectView = "pattern";
   state.error = null;
   state.assistantAdvice = null;
   state.assistantOpen = false;
@@ -756,6 +757,17 @@ async function handle(action, target) {
       break;
     case "mockup-fullscreen": {
       const frame = document.querySelector(".mockup-preview-frame");
+      if (!frame) return;
+      if (document.fullscreenElement) await document.exitFullscreen?.();
+      else await frame.requestFullscreen?.();
+      break;
+    }
+    case "detect-view":
+      state.detectView = target.dataset.detectView === "boundaries" ? "boundaries" : "pattern";
+      render();
+      break;
+    case "detect-fullscreen": {
+      const frame = document.querySelector(".detect-pattern-frame");
       if (!frame) return;
       if (document.fullscreenElement) await document.exitFullscreen?.();
       else await frame.requestFullscreen?.();
