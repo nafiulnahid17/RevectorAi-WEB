@@ -21,6 +21,6 @@ vm.runInNewContext(
   },
   { timeout: 5000 },
 );
-if (!app.innerHTML.includes(process.argv[3] ? "Admin Sign In" : "Upload Artwork"))
+if (!app.innerHTML.includes(process.argv[3] ? "Admin Sign In" : "Upload Your Jersey Artwork"))
   throw new Error("Initial workspace did not render");
 process.stdout.write(app.innerHTML);
