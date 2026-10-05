@@ -34,7 +34,13 @@ export function accountPage() {
 }
 
 export function profileSetupRequired() {
-  return Boolean(
-    account.profile?.role === "USER" && !account.profile?.profile_completed_at,
-  );
+  if (account.profile?.role !== "USER") return false;
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      account.profile || {},
+      "profile_completed_at",
+    )
+  )
+    return false;
+  return !account.profile.profile_completed_at;
 }
