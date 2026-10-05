@@ -286,16 +286,25 @@ const { execFileSync } = require("node:child_process");
   await page
     .getByRole("button", { name: "Apply Color & Revalidate", exact: true })
     .click();
-  await page.locator(".vector-workbench").waitFor({ timeout: 120000 });
 
-  const edited = await (
-    await page.request.get(base + "/api/revector/projects/" + pid)
-  ).json();
-  assert.equal(edited.true_vector_ready, true);
+  let edited = null;
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    edited = await (
+      await page.request.get(base + "/api/revector/projects/" + pid)
+    ).json();
+    if (
+      edited.true_vector_ready === true &&
+      edited.manual_changes.some((change) => change.action === "vector_fill")
+    )
+      break;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  assert.equal(edited?.true_vector_ready, true);
   assert.ok(
-    edited.manual_changes.some((change) => change.action === "vector_fill"),
+    edited?.manual_changes.some((change) => change.action === "vector_fill"),
     "Color edit must be persisted by the engine",
   );
+  await page.locator(".vector-workbench").waitFor({ timeout: 120000 });
 
   await page.locator('[data-action="review-view"][data-view="paths"]').click();
   await page.getByText("Diagnostic Paths", { exact: true }).waitFor();
