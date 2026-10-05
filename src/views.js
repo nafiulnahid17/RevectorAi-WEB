@@ -686,6 +686,252 @@ function analysisInspector() {
   </aside>`;
 }
 
+
+function enhancementMeta() {
+  const meta = state.project?.ai_metadata?.enhancement;
+  return meta && typeof meta === "object" ? meta : {};
+}
+
+function enhancementAsset() {
+  return state.project?.ai_assets?.enhancement || "";
+}
+
+function enhancementRunning() {
+  return Boolean(
+    state.step === 1 &&
+      state.job?.process_event?.event === "ENHANCING_ARTWORK" &&
+      !["SUCCEEDED", "FAILED", "CANCELLED"].includes(state.job?.job_state),
+  );
+}
+
+function enhancementComplete() {
+  return Boolean(enhancementAsset() && enhancementMeta().provider);
+}
+
+function enhancementDuration() {
+  const ms = finiteNumber(enhancementMeta().duration_ms);
+  if (ms === null || ms < 0) return "Unavailable";
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+}
+
+function enhancementProviderText() {
+  const meta = enhancementMeta();
+  const values = [meta.provider, meta.model].filter(Boolean);
+  return values.length ? values.join(" • ") : "Unavailable";
+}
+
+function enhancementPreviewCard(kind) {
+  const p = state.project;
+  const original = kind === "original";
+  const asset = original ? (p?.working_image || p?.thumbnail) : enhancementAsset();
+  const meta = sourceMeta();
+  const enhancement = enhancementMeta();
+  const status = original
+    ? (asset ? badge("Original") : badge("Unavailable"))
+    : enhancementComplete()
+      ? badge("Enhanced", "success")
+      : enhancementRunning()
+        ? badge("Processing", "purple")
+        : badge("Not Available");
+
+  return `<section class="enhance-preview-card ${original ? "original" : "result"}">
+    <header>
+      <span>${icon(original ? "file" : "spark")}<strong>${original ? "Original Artwork" : "AI Enhanced Result"}</strong></span>
+      ${status}
+    </header>
+    <div class="enhance-preview-art">
+      ${asset
+        ? picture(asset, original ? "Original artwork" : "AI enhanced artwork")
+        : `<div class="enhance-empty-preview">${icon(original ? "file" : "spark")}<strong>${original ? "Original artwork unavailable" : "No enhanced result yet"}</strong><span>${original ? "The engine has not provided a source preview." : "An image appears here only after the engine stores a real enhancement asset."}</span></div>`}
+      <span class="enhance-corner-label">${original ? "Before" : "After"}</span>
+    </div>
+    <footer>
+      ${original
+        ? `<span>${escape(fileTypeFromName(meta.filename))}</span><small>${escape(meta.size)} • ${escape(meta.dimensions)}</small>`
+        : `<span>${asset ? escape(fileTypeFromName(asset)) : "Unavailable"}</span><small>${enhancement.provider ? escape(enhancementProviderText()) : "Provider unavailable"}</small>`}
+      ${original ? "" : '<button class="enhance-compare-button" disabled title="Interactive compare is not exposed by the current engine UI contract">' + icon("eye") + " Compare</button>"}
+    </footer>
+  </section>`;
+}
+
+function enhancementProgressItems() {
+  const p = state.project;
+  const meta = enhancementMeta();
+  const asset = enhancementAsset();
+  const events = Array.isArray(p?.events)
+    ? p.events.map((event) => typeof event === "string" ? event : event?.event).filter(Boolean)
+    : [];
+  const current = state.job?.process_event?.event;
+  const later = events.some((event) =>
+    ["CREATING_PATTERN_MOCKUP", "IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES", "PART_REVIEW_READY"].includes(event),
+  ) || ["CREATING_PATTERN_MOCKUP", "IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES", "PART_REVIEW_READY"].includes(current);
+
+  const rows = [
+    {
+      label: "Source artwork ready",
+      complete: Boolean(p?.working_image),
+      active: false,
+      detail: p?.working_image ? "Available" : "Waiting",
+    },
+    {
+      label: "Enhancement stage",
+      complete: Boolean(meta.provider || asset || later),
+      active: enhancementRunning(),
+      detail: enhancementRunning() ? "In progress" : meta.provider || asset || later ? "Complete" : "Pending",
+    },
+    {
+      label: "AI provider response",
+      complete: Boolean(meta.provider),
+      active: enhancementRunning() && !meta.provider,
+      detail: meta.provider ? meta.provider : enhancementRunning() ? "Waiting" : "Pending",
+    },
+    {
+      label: "Enhanced asset stored",
+      complete: Boolean(asset),
+      active: Boolean(meta.provider && !asset && enhancementRunning()),
+      detail: asset ? "Available" : meta.provider ? "Waiting" : "Pending",
+    },
+    {
+      label: "Continue preparation",
+      complete: later,
+      active: Boolean(asset && !later && !enhancementRunning()),
+      detail: later ? "Started" : asset ? "Ready" : "Pending",
+    },
+  ];
+
+  return rows.map((row) => `<div class="enhance-progress-stage ${row.complete ? "complete" : row.active ? "active" : "pending"}">
+    <span class="enhance-stage-dot">${row.complete ? icon("check") : ""}</span>
+    <span><strong>${escape(row.label)}</strong><small>${escape(row.detail)}</small></span>
+  </div>`).join("");
+}
+
+function enhancementProgressPanel() {
+  const running = enhancementRunning();
+  const complete = enhancementComplete();
+  const meta = enhancementMeta();
+  const attempts = finiteNumber(meta.attempt_count);
+  return `<section class="enhance-progress-panel" aria-live="polite">
+    <div class="enhance-progress-ring ${complete ? "complete" : running ? "running" : ""}">
+      <span>${complete ? icon("check") : running ? "LIVE" : "—"}</span>
+    </div>
+    <div class="enhance-progress-copy">
+      <strong>${running ? "Enhancing artwork with AI..." : complete ? "AI enhancement completed" : "AI enhancement is not active"}</strong>
+      <p>${running
+        ? "The engine is running its configured enhancement provider."
+        : complete
+          ? "The enhanced raster shown above is the real asset stored by ReVector."
+          : "No enhancement result is being fabricated while the engine has no real asset to show."}</p>
+      <div class="enhance-progress-track ${complete ? "complete" : running ? "running" : ""}"><span></span></div>
+      <div class="enhance-progress-meta">
+        <span>Duration: <strong>${escape(enhancementDuration())}</strong></span>
+        <span>Attempts: <strong>${attempts === null ? "Unavailable" : attempts}</strong></span>
+      </div>
+    </div>
+    <div class="enhance-progress-stages">${enhancementProgressItems()}</div>
+  </section>`;
+}
+
+function enhancementFactRow(iconName, title, subtitle, status, tone = "") {
+  return `<div class="enhance-control-row">
+    <span class="enhance-control-icon">${icon(iconName)}</span>
+    <span class="enhance-control-copy"><strong>${escape(title)}</strong><small>${escape(subtitle)}</small></span>
+    <span class="enhance-switch ${tone}" aria-label="${escape(title)}: ${escape(status)}"><i></i><em>${escape(status)}</em></span>
+  </div>`;
+}
+
+function enhancementInspector() {
+  const p = state.project;
+  const settings = p?.settings || {};
+  const meta = enhancementMeta();
+  const running = enhancementRunning();
+  const complete = enhancementComplete();
+  const aiConfigured = Boolean(state.aiCapabilities?.primary_configured || state.aiCapabilities?.fallback_configured);
+  const requestedW = finiteNumber(settings.mockup_width);
+  const requestedH = finiteNumber(settings.mockup_height);
+  const requestedResolution = requestedW && requestedH ? `${requestedW} × ${requestedH}px requested` : "Unavailable";
+  const route = meta.processing_mode === "fallback_ai"
+    ? "Fallback AI"
+    : meta.processing_mode === "primary_ai"
+      ? "Primary AI"
+      : "Unavailable";
+
+  return `<aside class="enhance-inspector">
+    <section class="enhance-mode-head">
+      <div><span class="enhance-control-icon">${icon("settings")}</span><strong>Processing Mode</strong></div>
+      ${complete
+        ? badge("AI Enhanced", "success")
+        : running
+          ? badge("Enhancing", "purple")
+          : badge(aiConfigured ? "Auto Prepare" : "AI Unavailable", aiConfigured ? "" : "warning")}
+    </section>
+
+    <div class="enhance-tabs">
+      <button class="selected" disabled>Auto Enhance</button>
+      <button disabled title="Not exposed by the current engine contract">Manual Adjust</button>
+      <button disabled title="Not exposed by the current engine contract">AI Upscale</button>
+    </div>
+
+    <section class="enhance-controls">
+      ${enhancementFactRow("spark", "Clean Artwork", "Noise reduction project setting", settings.noise_reduction === false ? "Off" : "On", settings.noise_reduction === false ? "" : "on")}
+      ${enhancementFactRow("ruler", "Sharpen Details", "No independent engine setting is exposed", "N/A", "disabled")}
+      ${enhancementFactRow("settings", "Preserve Source Colors", "Project color-preservation setting", settings.preserve_original_colors === false ? "Off" : "On", settings.preserve_original_colors === false ? "" : "on")}
+      ${enhancementFactRow("file", "Remove Background", "No independent engine setting is exposed", "N/A", "disabled")}
+      ${enhancementFactRow("file", "Rebuild Missing Areas", "No independent engine setting is exposed", "N/A", "disabled")}
+      ${enhancementFactRow("file", "Text Detection (OCR)", "Project OCR setting", settings.ocr ? "On" : "Off", settings.ocr ? "on" : "")}
+    </section>
+
+    <section class="enhance-readout">
+      <div class="enhance-readout-row"><span>Provider Route</span><strong>${escape(route)}</strong></div>
+      <div class="enhance-readout-row"><span>Provider / Model</span><strong title="${escape(enhancementProviderText())}">${escape(enhancementProviderText())}</strong></div>
+      <div class="enhance-readout-row"><span>Enhancement Strength</span><strong>Not exposed</strong></div>
+      <div class="enhance-disabled-slider" aria-label="Enhancement strength is not exposed by the engine"><span></span></div>
+      <div class="enhance-readout-row"><span>Output Resolution</span><strong>${escape(requestedResolution)}</strong></div>
+    </section>
+
+    <section class="enhance-apply-wrap">
+      <button class="enhance-apply-button" disabled>
+        ${icon("spark")}
+        ${running
+          ? "Enhancement Running"
+          : complete
+            ? "Enhancement Applied Automatically"
+            : settings.ai_workflow && aiConfigured
+              ? "Runs Automatically During Prepare"
+              : "Automatic Enhancement Unavailable"}
+        ${icon("chevron")}
+      </button>
+      <small>ReVector currently runs enhancement automatically inside the real Prepare workflow; there is no separate Apply endpoint.</small>
+    </section>
+  </aside>`;
+}
+
+function enhanceMain() {
+  return `<main class="main-column enhance-reference-main">
+    <section class="enhance-hero-copy">
+      <div class="enhance-hero-title">
+        <span class="enhance-hero-icon">${icon("spark")}</span>
+        <div>
+          <span class="enhance-step-label">Step 3 of 8</span>
+          <h1>Enhance Your Jersey Artwork</h1>
+        </div>
+      </div>
+      <p>AI enhancement is shown only when the engine actually runs and stores the enhancement stage. ReVector never fabricates a before/after result.</p>
+      <div class="enhance-why-card">
+        <span class="enhance-why-icon">${icon("spark")}</span>
+        <div><strong>Why Enhance?</strong><ul><li>Prepare cleaner source detail</li><li>Improve downstream part detection</li><li>Provide a stronger intermediate reference</li></ul></div>
+      </div>
+    </section>
+
+    <section class="enhance-comparison-grid">
+      ${enhancementPreviewCard("original")}
+      <div class="enhance-arrow" aria-hidden="true">→</div>
+      ${enhancementPreviewCard("result")}
+    </section>
+
+    ${enhancementProgressPanel()}
+  </main>`;
+}
+
 function correctedSize() {
   return (
     state.project?.geometry?.output_dimensions ||
