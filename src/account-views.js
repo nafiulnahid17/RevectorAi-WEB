@@ -218,8 +218,8 @@ function userSidebar(page, setupRequired) {
       ${links.map(([route,label]) => {
         const active = page === route;
         if (setupRequired && route !== "profile")
-          return `<span class="ud-nav-link locked">${userIcon(route)}<span>${e(label)}</span><b>•</b></span>`;
-        return `<a href="/dashboard/${route === "dashboard" ? "" : route}" data-account="nav" class="ud-nav-link ${active ? "active" : ""}">${userIcon(route)}<span>${e(label)}</span><b>›</b></a>`;
+          return `<span class="ud-nav-link locked">${userIcon(route)}<span>${e(label)}</span><b aria-hidden="true">•</b></span>`;
+        return `<a href="/dashboard/${route === "dashboard" ? "" : route}" data-account="nav" class="ud-nav-link ${active ? "active" : ""}">${userIcon(route)}<span>${e(label)}</span><b aria-hidden="true">›</b></a>`;
       }).join("")}
       ${button(`${userIcon("logout")}<span>Sign Out</span>`, "logout", 'class="ud-nav-link ud-signout"')}
     </nav>
@@ -258,8 +258,8 @@ function dashboardPage(d,p,w,models) {
       <ul><li>AI-assisted vectorization</li><li>Engine-controlled boundaries</li><li>Production-ready export validation</li></ul>
     </section>
     <div class="ud-preferences">
-      <a href="/dashboard/models" data-account="nav">${userIcon("model")}<span><small>Preferred Analyzer Model</small><strong>${e(preferenceName(pref.analyzer_model_id,models))}</strong></span><b>›</b></a>
-      <a href="/dashboard/models" data-account="nav">${userIcon("image")}<span><small>Preferred Image Model</small><strong>${e(preferenceName(pref.image_model_id,models))}</strong></span><b>›</b></a>
+      <a href="/dashboard/models" data-account="nav">${userIcon("model")}<span><small>Preferred Analyzer Model</small><strong>${e(preferenceName(pref.analyzer_model_id,models))}</strong></span><b aria-hidden="true">›</b></a>
+      <a href="/dashboard/models" data-account="nav">${userIcon("image")}<span><small>Preferred Image Model</small><strong>${e(preferenceName(pref.image_model_id,models))}</strong></span><b aria-hidden="true">›</b></a>
     </div>
     <section class="ud-panel">
       <header><div><h2>Recent Usage</h2><p>Your latest real operations.</p></div><a href="/dashboard/usage" data-account="nav">View All →</a></header>
