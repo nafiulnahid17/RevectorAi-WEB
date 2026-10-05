@@ -295,14 +295,23 @@ function aiEngineStatus(kind) {
 
   const configured = kind === "primary" ? caps.primary_configured : caps.fallback_configured;
   const configErrors = Array.isArray(caps.configuration_errors) ? caps.configuration_errors : [];
-  if (configured)
+  if (configured) {
+    if (kind === "primary")
+      return {
+        tone: configErrors.length ? "warning" : "success",
+        label: configErrors.length ? "Ready - Check Warnings" : "Ready",
+        detail:
+          "Primary AI is configured and available. It becomes Active when this project records a successful provider response." +
+          (configErrors.length ? " The engine also reports provider configuration warnings." : ""),
+      };
     return {
       tone: "neutral",
-      label: "Inactive",
+      label: "Standby",
       detail:
-        "Configured, but no successful provider request has been verified in this project." +
-        (configErrors.length ? " The engine also reports provider configuration warnings that are not attributable to this specific card." : ""),
+        "Fallback AI is configured and reserved for primary-provider failure. It becomes Active only when fallback is actually used." +
+        (configErrors.length ? " The engine also reports provider configuration warnings." : ""),
     };
+  }
   return {
     tone: "neutral",
     label: "Inactive",
