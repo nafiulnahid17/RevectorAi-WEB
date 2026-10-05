@@ -1656,7 +1656,7 @@ function vectorSelectedShapePanel() {
     <div class="row between"><h3>Selected Shape</h3>${badge("Real SVG Object", "purple")}</div>
     <div class="vector-shape-card">
       <div class="vector-shape-swatch" style="${/^#[0-9a-f]{6}$/i.test(meta.fill || "") ? `background:${meta.fill}` : ""}">${/^#[0-9a-f]{6}$/i.test(meta.fill || "") ? "" : icon("file")}</div>
-      <div><strong>${escape(meta.id)}</strong><small>${escape(meta.type || "SVG shape")}</small></div>
+      <div><strong id="shape-label">${escape(meta.id)}</strong><small>${escape(meta.type || "SVG shape")}</small></div>
     </div>
     <dl class="vector-stat-list">
       <div><dt>Type</dt><dd>${escape(meta.type || "Unavailable")}</dd></div>
