@@ -11,7 +11,7 @@ const path = require('node:path');
   try {
     const page = await owner.newPage();
     await page.goto(base);
-    await page.getByText('Engine connected', { exact: true }).waitFor();
+    await page.locator('[data-connection="engine"].connected').waitFor();
     assert.equal(await page.evaluate(() => document.cookie), '', 'Session must be HttpOnly');
     const cookie = (await owner.cookies()).find(c => c.name === 'revector_session');
     assert.ok(cookie?.httpOnly);
