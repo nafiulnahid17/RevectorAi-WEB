@@ -245,6 +245,20 @@ export async function controlRoute(request, env, transport) {
       )[0],
     });
   }
+  if (route === "payment-settings" && request.method === "GET") {
+    const settings = (
+      await db.table(
+        "revector_payment_settings",
+        {
+          id: "eq.default",
+          select: "usd_to_bdt_rate,bkash,nagad,updated_at",
+          limit: "1",
+        },
+        options(identity),
+      )
+    )[0] || null;
+    return response({ settings });
+  }
   if (route === "models" && request.method === "GET")
     return response({
       items: await db.table(
@@ -290,10 +304,41 @@ export async function controlRoute(request, env, transport) {
     const d = await input(request);
     let payload, status;
     if (d.type === "TOPUP") {
+      const requested = number(d.requested_credits, 0.0001);
+      const method = text(d.payment_method, 20).toUpperCase();
+      if (!["BKASH", "NAGAD"].includes(method))
+        throw new ControlError("INVALID_PAYMENT_METHOD");
+      const settings = (
+        await db.table(
+          "revector_payment_settings",
+          {
+            id: "eq.default",
+            select: "usd_to_bdt_rate,bkash,nagad,updated_at",
+            limit: "1",
+          },
+          options(identity),
+        )
+      )[0];
+      const methodSettings = settings?.[method.toLowerCase()];
+      if (
+        !settings ||
+        !methodSettings?.enabled ||
+        !String(methodSettings?.number || "").trim()
+      )
+        throw new ControlError(
+          "PAYMENT_METHOD_UNAVAILABLE",
+          409,
+          "The selected payment method is not currently available.",
+        );
       payload = {
-        requested_credits: number(d.requested_credits, 0.0001),
-        payment_method: text(d.payment_method, 100),
+        requested_credits: requested,
+        requested_balance_usd: requested,
+        payment_method: method,
+        payment_destination: String(methodSettings.number),
         payment_note: text(d.payment_note || "", 1000, false),
+        usd_to_bdt_rate: Number(settings.usd_to_bdt_rate),
+        quoted_bdt: Math.round(requested * Number(settings.usd_to_bdt_rate) * 100) / 100,
+        payment_settings_updated_at: settings.updated_at,
       };
       status = "PENDING";
     } else if (d.type === "MODEL_CHANGE") {
