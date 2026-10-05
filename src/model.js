@@ -52,6 +52,7 @@ const state = {
   initialBootstrap: !globalThis.REVECTOR_PRERENDER,
   project: null,
   selected: null,
+  selectedSlot: null,
   step: 0,
   preparationView: "analyze",
   preset: "BALANCED",
