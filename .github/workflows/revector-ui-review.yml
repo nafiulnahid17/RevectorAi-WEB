@@ -105,6 +105,9 @@ jobs:
           ALLOW_INSECURE_LOCAL_ENGINE=true
           ENGINE_API_KEY=$TEST_ENGINE_KEY
           SESSION_SIGNING_KEY=$TEST_SESSION_KEY
+          SUPABASE_URL=
+          SUPABASE_ANON_KEY=
+          SUPABASE_SERVICE_ROLE_KEY=
           EOF
           npx wrangler dev --local --ip 127.0.0.1 --port 8787 > worker-review.log 2>&1 &
           echo $! > worker-review.pid
