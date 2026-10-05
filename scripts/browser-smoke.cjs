@@ -306,8 +306,29 @@ const { execFileSync } = require("node:child_process");
   );
   await page.locator(".vector-workbench").waitFor({ timeout: 120000 });
 
-  await page.locator('[data-action="review-view"][data-view="paths"]').click();
-  await page.getByText("Diagnostic Paths", { exact: true }).waitFor();
+  const pathToggle = page.locator(
+    '[data-action="vector-toggle"][data-vector-toggle="paths"]',
+  );
+  await pathToggle.waitFor();
+  assert.equal(await pathToggle.getAttribute("aria-pressed"), "true");
+  await pathToggle.click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-action="vector-toggle"][data-vector-toggle="paths"]')
+        ?.getAttribute("aria-pressed") === "false" &&
+      !document.querySelector(".vector-canvas-stage")?.classList.contains("paths-on"),
+  );
+  await page
+    .locator('[data-action="vector-toggle"][data-vector-toggle="paths"]')
+    .click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-action="vector-toggle"][data-vector-toggle="paths"]')
+        ?.getAttribute("aria-pressed") === "true" &&
+      document.querySelector(".vector-canvas-stage")?.classList.contains("paths-on"),
+  );
   assert.equal(await page.getByText("Compare", { exact: true }).count(), 0);
 
   await page.locator('[data-action="navigate"][data-step="4"]').click();
