@@ -688,6 +688,8 @@ async function handle(action, target) {
       break;
     case "select-part":
       state.selected = target.dataset.id;
+      state.vectorStats = null;
+      state.shapeMeta = null;
       state.selectedSlot =
         expectedSlots.find(
           (slot) => state.project?.slots?.[slot.key]?.part_id === state.selected,
@@ -722,11 +724,36 @@ async function handle(action, target) {
     case "review-view":
       state.view = target.dataset.view === "paths" ? "paths" : "vector";
       state.shape = null;
+      state.shapeMeta = null;
+      render();
+      break;
+    case "vector-toggle": {
+      const key = target.dataset.vectorToggle;
+      if (key === "paths") state.vectorShowPaths = !state.vectorShowPaths;
+      if (key === "labels") state.vectorShowLabels = !state.vectorShowLabels;
+      render();
+      break;
+    }
+    case "vector-zoom-in":
+      state.vectorZoom = Math.min(2, Math.round((state.vectorZoom + 0.1) * 10) / 10);
+      render();
+      break;
+    case "vector-zoom-out":
+      state.vectorZoom = Math.max(0.5, Math.round((state.vectorZoom - 0.1) * 10) / 10);
+      render();
+      break;
+    case "vector-fit":
+      state.vectorZoom = 1;
       render();
       break;
     case "palette":
       if (!state.shape) return toast("Select a vector shape first.");
-      document.querySelector("#shape-color").value = target.dataset.color;
+      {
+        const input = document.querySelector("#shape-color");
+        if (input) input.value = target.dataset.color;
+        const hex = document.querySelector("#vector-fill-hex");
+        if (hex) hex.textContent = target.dataset.color.toUpperCase();
+      }
       break;
     case "apply-fill":
       await applyFill();
