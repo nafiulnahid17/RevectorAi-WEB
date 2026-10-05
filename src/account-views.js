@@ -440,12 +440,31 @@ function ticketConversation() {
 }
 function supportPage(d) {
   const requests=(d.requests?.items||[]).filter(r=>r.type==="SUPPORT");
+  const statuses=["ALL","OPEN","IN_PROGRESS","RESOLVED","CLOSED"];
+  const active=statuses.includes(account.supportFilter)?account.supportFilter:"ALL";
+  const count=(status)=>status==="ALL"?requests.length:requests.filter(r=>r.status===status).length;
+  const filtered=active==="ALL"?requests:requests.filter(r=>r.status===active);
+  const segments=statuses.map(status=>button(
+    `${status==="ALL"?"All":status.replaceAll("_"," ")} <strong>${count(status)}</strong>`,
+    "support-filter",
+    `class="ud-support-segment ${active===status?"active":""}" data-filter="${status}" aria-pressed="${active===status}"`,
+  )).join("");
   return `
     ${pageTitle("support","Support","Submit a ticket, track your requests, and continue real support conversations.")}
+    <section class="ud-support-summary">
+      <div><span>Support Center</span><h2>My Ticket Activity</h2><p>Focus on active requests while keeping resolved conversations available.</p></div>
+      <div class="ud-support-summary-grid">
+        <span><small>Open</small><strong>${count("OPEN")}</strong></span>
+        <span><small>In Progress</small><strong>${count("IN_PROGRESS")}</strong></span>
+        <span><small>Resolved</small><strong>${count("RESOLVED")}</strong></span>
+        <span><small>Closed</small><strong>${count("CLOSED")}</strong></span>
+      </div>
+    </section>
+    <div class="ud-support-segments" role="group" aria-label="Filter support tickets by status">${segments}</div>
     <div class="ud-support-layout">
       <div>
-        <section class="ud-panel"><header><div><h2>My Support Tickets</h2><p>View and manage your support requests.</p></div></header>
-          ${accountTable(["Subject","Status","Priority","Updated",""],ticketRows(requests),"No support tickets yet.")}
+        <section class="ud-panel"><header><div><h2>My Support Tickets · ${filtered.length}</h2><p>View and manage your support requests.</p></div></header>
+          ${accountTable(["Subject","Status","Priority","Updated",""],ticketRows(filtered),"No support tickets match this filter.")}
         </section>
         <section class="ud-panel"><header><div><h2>Submit a New Support Ticket</h2><p>Describe the issue and the support team can reply inside this conversation.</p></div></header>
           ${form("support",field("Subject *","subject","text","",'required maxlength="160" placeholder="Enter a short description"')+select("Category","category",["TECHNICAL","VECTOR_QUALITY","BILLING","CREDITS","MODEL","ACCOUNT","OTHER"].map(v=>[v,v.replaceAll("_"," ")]))+select("Priority","priority",[["LOW","Low"],["NORMAL","Normal"],["HIGH","High"]],"NORMAL")+area("Description *","message",'placeholder="Describe the issue, expected result, and relevant errors."'),"Submit Ticket")}
@@ -485,7 +504,7 @@ export function accountMarkup() {
         ${account.notice ? `<p class="account-notice" role="status">${e(account.notice)}</p>`:""}
         ${account.busy ? '<div class="ud-loading" role="status">Loading real account data…</div>':""}
         ${userContent(page)}
-        ${!setupRequired && ["usage","balance","support","models"].includes(page) ? `<div class="account-pager">${button("Previous","previous",account.offset===0?"disabled":"")}<span>Page ${account.offset/50+1}</span>${button("Next","next",(account.data[page==="balance"?"transactions":page==="models"?"requests":page]?.items||[]).length<50?"disabled":"")}</div>`:""}
+        ${!setupRequired && ["usage","balance","support","models"].includes(page) ? `<div class="account-pager">${button("Previous","previous",account.offset===0?"disabled":"")}<span>Page ${account.offset/50+1}</span>${button("Next","next",(account.data[page==="balance"?"transactions":page==="models"||page==="support"?"requests":page]?.items||[]).length<50?"disabled":"")}</div>`:""}
       </main>
       ${userSidebar(page,setupRequired)}
     </div>
