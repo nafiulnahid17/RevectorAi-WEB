@@ -131,8 +131,6 @@ export async function initializeAccount() {
   } catch {
     account.configured = null;
   }
-  if (account.configured === true && !account.profile && currentPath() === "/")
-    history.replaceState({}, "", "/login");
   if (token && params.get("type") === "invite") {
     history.replaceState({}, "", "/login");
     await guarded(async () => {
@@ -221,7 +219,7 @@ export async function accountClick(target) {
         localStorage.removeItem("revector.project");
         localStorage.removeItem("revector.active-job");
       } catch {}
-      location.assign("/login");
+      location.assign("/");
     });
   if (action === "close-ticket") {
     account.ticket = null;
