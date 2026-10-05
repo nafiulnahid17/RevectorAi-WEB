@@ -116,6 +116,12 @@ export async function authenticate(request, env, transport, admin = false) {
       403,
       "This account cannot access ReVector.",
     );
+  if (!admin && profile.role !== "USER")
+    throw new ControlError(
+      "USER_REQUIRED",
+      403,
+      "Use an invited ReVector user account to access the production workspace.",
+    );
   if (admin && !["ADMIN", "SUPPORT"].includes(profile.role))
     throw new ControlError(
       "ADMIN_REQUIRED",
@@ -157,6 +163,12 @@ export async function authRoute(request, env, transport, admin = false) {
         403,
         "An active ReVector invitation is required.",
       );
+    if (!admin && profile.role !== "USER")
+      throw new ControlError(
+        "USER_REQUIRED",
+        403,
+        "Use an invited ReVector user account to access the production workspace.",
+      );
     if (admin && !["ADMIN", "SUPPORT"].includes(profile.role))
       throw new ControlError(
         "ADMIN_REQUIRED",
@@ -174,11 +186,31 @@ export async function authRoute(request, env, transport, admin = false) {
   }
   if (path.endsWith("/invitation") && request.method === "POST" && !admin) {
     const data = await input(request);
-    const tokens = await db.call("/auth/v1/verify", {
-      method: "POST",
-      auth: true,
-      body: { token_hash: text(data.token_hash, 400), type: "invite" },
-    });
+    let tokens;
+    if (data.token_hash) {
+      tokens = await db.call("/auth/v1/verify", {
+        method: "POST",
+        auth: true,
+        body: { token_hash: text(data.token_hash, 400), type: "invite" },
+      });
+    } else {
+      const access = text(data.access_token, 5000);
+      const refresh = text(data.refresh_token, 5000);
+      const expiresIn = Math.max(
+        60,
+        Math.min(86400, Number(data.expires_in || 3600) || 3600),
+      );
+      const user = await db.call("/auth/v1/user", {
+        auth: true,
+        token: access,
+      });
+      tokens = {
+        user,
+        access_token: access,
+        refresh_token: refresh,
+        expires_in: expiresIn,
+      };
+    }
     const profile = (
       await db.table("revector_profiles", {
         id: "eq." + tokens.user.id,
@@ -188,6 +220,12 @@ export async function authRoute(request, env, transport, admin = false) {
     )[0];
     if (!profile || profile.status !== "ACTIVE")
       throw new ControlError("ACCOUNT_NOT_ACTIVE", 403);
+    if (profile.role !== "USER")
+      throw new ControlError(
+        "USER_REQUIRED",
+        403,
+        "This invitation is not a production user account.",
+      );
     const created = Date.now() / 1000;
     return Response.json(
       { profile },
