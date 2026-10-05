@@ -31,7 +31,10 @@ const AVATAR_BUCKET = "revector-avatars";
 const AVATAR_LIMIT = 3 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 function profileSetupComplete(profile) {
-  return profile?.role !== "USER" || Boolean(profile?.profile_completed_at);
+  if (profile?.role !== "USER") return true;
+  if (!Object.prototype.hasOwnProperty.call(profile || {}, "profile_completed_at"))
+    return true;
+  return Boolean(profile.profile_completed_at);
 }
 function avatarPath(uid) {
   return uid + "/avatar";
