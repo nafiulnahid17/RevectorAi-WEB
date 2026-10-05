@@ -116,6 +116,33 @@ const { execFileSync } = require("node:child_process");
     "TOP_TRIM",
   ]);
 
+  await page.getByRole("button", { name: "Enhance", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Enhance Your Jersey Artwork", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator('img[alt="AI enhanced artwork"]').count(),
+    0,
+    "Enhance page must not fabricate an enhanced image when no AI provider ran",
+  );
+  await page.getByText("No enhanced result yet", { exact: true }).waitFor();
+  await page.getByText("Not exposed", { exact: true }).first().waitFor();
+  for (const fakeValue of ["68%", "75%", "4.2s", "Claude 3.5 Sonnet", "GPT-4o"]) {
+    assert.equal(
+      await page.getByText(fakeValue, { exact: true }).count(),
+      0,
+      `Enhance page must not contain demo value ${fakeValue}`,
+    );
+  }
+  await page.screenshot({
+    path: path.join(out, "00-enhance-real-empty-state.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Detect Parts", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "8-Part Review", exact: true })
+    .waitFor();
+
   assert.equal(
     await page.getByText("AI Production Mockup", { exact: true }).count(),
     0,
