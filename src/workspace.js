@@ -1,5 +1,5 @@
 import { registerAccountRenderer, initializeAccount, accountClick, accountSubmit, loadAccountPage } from "./account-controller.js";
-import { accountPage } from "./account-model.js";
+import { account, accountPage } from "./account-model.js";
 import {
   state,
   app,
