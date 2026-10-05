@@ -55,6 +55,32 @@ function login() {
   return `<div class="account-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Invite-only access</div><h1>Sign in to ReVector</h1><p class="muted">First-time users must enter through the invitation link from their administrator. After setup, sign in here with your email address and updated password. User sessions expire after 24 hours.</p>${account.configured === false ? empty("Account services are not configured. Contact the owner to enable Supabase Auth.") : form("login", field("Email", "email", "email", "", 'required autocomplete="username"') + field("Password", "password", "password", "", 'required autocomplete="current-password"'), "Sign In")}${account.error ? `<p role="alert" class="account-error">${e(account.error)}</p>` : ""}</section></div>`;
 }
 
+export function userLoginGate() {
+  if (currentPath() !== "/" || account.profile || account.configured === null)
+    return "";
+  return `<div class="user-login-gate" id="user-login-gate" role="dialog" aria-modal="true" aria-labelledby="user-login-title">
+    <div class="user-login-gate-card">
+      <div class="user-login-brand">
+        <img src="/assets/revector-ai-logo.svg" alt="">
+        <div><strong>ReVector AI</strong><small>Inside JerseyOS</small></div>
+      </div>
+      <div class="user-login-kicker">Secure Production Access</div>
+      <h2 id="user-login-title">Sign in to continue</h2>
+      <p>Your production workspace is ready. Sign in with your invited ReVector account to access projects and tools.</p>
+      ${account.configured === false
+        ? empty("Account services are not configured. Contact the workspace administrator.")
+        : form(
+            "login",
+            field("Email", "email", "email", "", 'required autocomplete="username" autofocus') +
+              field("Password", "password", "password", "", 'required autocomplete="current-password"'),
+            "Sign In",
+          )}
+      ${account.error ? `<p role="alert" class="account-error">${e(account.error)}</p>` : ""}
+      <small class="user-login-note">Invite-only workspace • Session access is enforced by the ReVector account service.</small>
+    </div>
+  </div>`;
+}
+
 export function profileSetupPrompt() {
   if (!profileSetupRequired()) return "";
   return `<div class="profile-setup-gate" role="dialog" aria-modal="true" aria-labelledby="profile-setup-title">
