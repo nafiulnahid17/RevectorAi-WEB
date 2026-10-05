@@ -1518,119 +1518,255 @@ function vectorPartReady(pp) {
   return Boolean(pp?.vector && pp?.cache?.optimize && !pp?.error);
 }
 
-function vectorPartTiles() {
-  return `<div class="vector-parts">
-    ${(state.project?.parts || [])
-      .map(
-        (pp) => `<button class="vector-part ${state.selected === pp.part_id ? "active" : ""}" data-action="select-part" data-id="${pp.part_id}">
-          <div class="vector-part-thumb">${picture(pp.corrected_crop, pp.name)}</div>
-          <span><strong>${escape(pp.name)}</strong><small>${escape(pp.processing_state || "Detected")}</small></span>
-          ${pp.error ? badge("Failed", "error") : vectorPartReady(pp) ? badge("Vector Ready", "success") : badge("Pending")}
-        </button>`,
-      )
-      .join("")}
+function vectorMetric(pp, key, fallback = null) {
+  const value = pp?.metrics?.[key];
+  if (value !== undefined && value !== null) return value;
+  if (fallback && pp?.metrics?.[fallback] !== undefined && pp?.metrics?.[fallback] !== null)
+    return pp.metrics[fallback];
+  return null;
+}
+
+function vectorSlotOrder() {
+  const keys = [
+    "LEFT_SLEEVE",
+    "FRONT_BODY",
+    "BACK_BODY",
+    "RIGHT_SLEEVE",
+    "FRONT_COLLAR",
+    "BACK_COLLAR",
+    "TOP_TRIM",
+    "BOTTOM_TRIM",
+  ];
+  return keys.map((key) => expectedSlots.find((slot) => slot.key === key)).filter(Boolean);
+}
+
+function vectorCanvasPart(def) {
+  const pp = partForSlot(def.key);
+  const slot = slotState(def.key);
+  const selected = Boolean(pp && state.selected === pp.part_id);
+  const readyPart = vectorPartReady(pp);
+  const content = readyPart
+    ? selected
+      ? '<div id="vector-art" class="vector-inline-svg"><div class="empty-preview">Loading real SVG objects...</div></div>'
+      : picture(pp.vector, `${def.label} vector`, "vector-layout-image")
+    : `<div class="vector-layout-empty">${icon(pp?.error ? "alert" : "file")}<span>${pp?.error ? "Vectorization failed" : slot.status === "blank" ? "Left blank" : "Vector pending"}</span></div>`;
+
+  return `<button class="vector-layout-part ${selected ? "selected" : ""} ${readyPart ? "ready" : pp?.error ? "failed" : "pending"}" data-action="select-part" data-id="${pp?.part_id || ""}" data-vector-slot="${def.key}" ${pp ? "" : "disabled"}>
+    <div class="vector-layout-art">${content}</div>
+    <span class="vector-part-label">${escape(def.label)}</span>
+  </button>`;
+}
+
+function vectorToolbar() {
+  return `<div class="vector-toolbar">
+    <div class="vector-toolbar-left">
+      <button class="vector-zoom-value" disabled>${Math.round(state.vectorZoom * 100)}%</button>
+      ${btn("−", "vector-zoom-out", "vector-tool-button", state.vectorZoom <= 0.5, 'aria-label="Zoom out"')}
+      ${btn("+", "vector-zoom-in", "vector-tool-button", state.vectorZoom >= 2, 'aria-label="Zoom in"')}
+      ${btn("Fit to View", "vector-fit", "vector-fit-button")}
+    </div>
+    <div class="vector-toolbar-show">
+      <span>Show:</span>
+      ${btn(`${state.vectorShowPaths ? "☑" : "☐"} Vector Paths`, "vector-toggle", `vector-show-toggle ${state.vectorShowPaths ? "active" : ""}`, false, 'data-vector-toggle="paths" aria-pressed="' + String(state.vectorShowPaths) + '"')}
+      <button class="vector-show-toggle" disabled title="Independent anchor-point editing is not exposed by the engine">☐ Shape Points</button>
+      ${btn(`${state.vectorShowLabels ? "☑" : "☐"} Part Labels`, "vector-toggle", `vector-show-toggle ${state.vectorShowLabels ? "active" : ""}`, false, 'data-vector-toggle="labels" aria-pressed="' + String(state.vectorShowLabels) + '"')}
+    </div>
+    <div class="vector-toolbar-right">
+      ${btn("Fit to View", "vector-fit", "vector-fit-button")}
+      <button class="vector-tool-button" disabled title="Fullscreen workspace control is not exposed">⛶</button>
+    </div>
   </div>`;
 }
 
-function vectorPreview() {
-  const pp = part();
-  const vectorReady = vectorPartReady(pp);
-  const isPaths = state.view === "paths";
-  return `<section class="card stack vector-stage">
-    <div class="toolbar">
-      <div>
-        <div class="section-kicker">Selected Vector Part</div>
-        <h2>${escape(pp?.name || "Choose a Part")}</h2>
-      </div>
-      <div class="tabs">
-        ${btn("Vector View", "review-view", "tab " + (!isPaths ? "selected" : ""), false, 'data-view="vector"')}
-        ${btn("Paths View", "review-view", "tab " + (isPaths ? "selected" : ""), false, 'data-view="paths"')}
-      </div>
-    </div>
-    <div class="wide-preview">
-      <div class="preview-pane">
-        <div class="row between">
-          <span>${isPaths ? "Diagnostic Paths" : "Editable Vector"}</span>
-          ${vectorReady
-            ? badge(ready() ? "Editable SVG Ready" : "Vector Ready", "success")
-            : badge(pp?.error ? "Vectorization Failed" : "Vector Pending", pp?.error ? "error" : "warning")}
-        </div>
-        <div class="preview-art vector-preview" id="vector-art">
-          ${!pp
-            ? '<div class="empty-preview">Select a part.</div>'
-            : isPaths && pp.previews?.vector_view
-              ? picture(pp.previews.vector_view, "Vector path diagnostic")
-              : vectorReady
-                ? '<div class="empty-preview">Loading real SVG objects...</div>'
-                : '<div class="empty-preview">Vector Preview Unavailable. No raster fallback is shown as editable artwork.</div>'}
-        </div>
+function vectorProductionCanvas() {
+  const showPaths = state.vectorShowPaths ? "paths-on" : "";
+  const showLabels = state.vectorShowLabels ? "labels-on" : "labels-off";
+  return `<section class="vector-workbench">
+    ${vectorToolbar()}
+    <div class="vector-ruler-top" aria-hidden="true"></div>
+    <div class="vector-ruler-left" aria-hidden="true"></div>
+    <div class="vector-canvas-stage ${showPaths} ${showLabels}">
+      <div class="vector-canvas-grid" style="--vector-zoom:${state.vectorZoom}">
+        ${vectorSlotOrder().map(vectorCanvasPart).join("")}
       </div>
     </div>
   </section>`;
 }
 
-function vectorControls() {
+function hexToHsv(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex || "")) return null;
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : Math.round((d / max) * 100);
+  const v = Math.round(max * 100);
+  return { h, s, v };
+}
+
+function vectorSelectedPartPanel() {
   const pp = part();
-  return `<section class="card stack vector-control-card">
-    <div class="row between">
-      <h2>Part -> Shape -> Color</h2>
-      ${pp && vectorPartReady(pp) ? badge("Real SVG Objects", "purple") : badge("Unavailable")}
-    </div>
-    <p class="small muted">Select a real shape in Vector View. Fill edits are sent to the engine using the SVG shape ID, then revalidated.</p>
-    ${pp?.error ? `<div class="note error">
-      <strong>Vectorization Failed</strong><br>
-      ${escape(pp.error.message || "The selected part needs isolated recovery.")}
-      <div class="row wrap recovery-buttons">
-        ${btn("Retry Failed Part", "recover-selected", "primary", false)}
-        ${btn("Use Fallback Trace", "recover-selected-fallback", "quiet", false)}
+  if (!pp)
+    return `<section class="vector-inspector-section"><h3>Selected Part</h3><p class="vector-empty-copy">Select a vectorized production part.</p></section>`;
+
+  const defs = vectorSlotOrder();
+  const def = defs.find((item) => state.project?.slots?.[item.key]?.part_id === pp.part_id) || defs.find((item) => item.type === pp.type);
+  const index = def ? defs.indexOf(def) + 1 : null;
+  const paths = vectorMetric(pp, "after_paths", "paths");
+  const anchors = vectorMetric(pp, "final_anchor_count", "anchors");
+  const shapeCount = state.vectorStats?.part_id === pp.part_id ? state.vectorStats.shapeCount : null;
+  const preview = vectorPartReady(pp) ? pp.vector : pp.corrected_crop;
+
+  return `<section class="vector-inspector-section">
+    <h3>Selected Part</h3>
+    <div class="vector-selected-part">
+      <div class="vector-selected-thumb">${preview ? picture(preview, pp.name) : icon("file")}</div>
+      <div>
+        <strong>${escape(pp.name)}</strong>
+        <small>${index ? `Part ${index} of 8` : "Unassigned component"}</small>
+        ${pp.error ? badge("Failed", "error") : vectorPartReady(pp) ? badge("Vector Ready", "success") : badge("Pending")}
       </div>
-    </div>` : ""}
-    <div class="selected-shape-box">
-      <span class="small muted">Selected Shape</span>
-      <strong id="shape-label">${escape(state.shape || "None")}</strong>
     </div>
-    <input type="color" class="color-input" id="shape-color" aria-label="Selected shape fill" value="#6d3dee" ${!state.shape || state.busy ? "disabled" : ""}>
-    ${btn("Apply Color & Revalidate", "apply-fill", "primary full-width", !state.shape)}
-    <div class="divider"></div>
-    <h3>Artwork Palette</h3>
-    <div class="swatches">
-      ${(pp?.palette || [])
-        .slice(0, 24)
-        .map((color) => {
-          const value = /^#[0-9a-f]{6}$/i.test(color.hex || "") ? color.hex : null;
-          return value
-            ? `<button class="swatch" style="background:${value}" data-action="palette" data-color="${value}" aria-label="Use palette color ${value}"></button>`
-            : "";
-        })
-        .join("") || '<span class="small muted">No engine palette is available for this part.</span>'}
+    <dl class="vector-stat-list">
+      <div><dt>Dimensions</dt><dd>${escape(dimensions(pp))}</dd></div>
+      <div><dt>Vector Paths</dt><dd>${paths == null ? "Unavailable" : escape(paths)}</dd></div>
+      <div><dt>Editable Shapes</dt><dd>${shapeCount == null ? "Loading" : escape(shapeCount)}</dd></div>
+      <div><dt>Anchor Points</dt><dd>${anchors == null ? "Unavailable" : escape(anchors)}</dd></div>
+      <div><dt>Embedded Rasters</dt><dd>${pp?.metrics?.embedded_rasters ?? "Unavailable"}</dd></div>
+    </dl>
+  </section>`;
+}
+
+function vectorSelectedShapePanel() {
+  const meta = state.shapeMeta;
+  if (!state.shape || !meta)
+    return `<section class="vector-inspector-section"><h3>Selected Shape</h3><p class="vector-empty-copy">Click a real SVG object in the selected part to inspect and recolor it.</p></section>`;
+
+  return `<section class="vector-inspector-section">
+    <div class="row between"><h3>Selected Shape</h3>${badge("Real SVG Object", "purple")}</div>
+    <div class="vector-shape-card">
+      <div class="vector-shape-swatch" style="${/^#[0-9a-f]{6}$/i.test(meta.fill || "") ? `background:${meta.fill}` : ""}">${/^#[0-9a-f]{6}$/i.test(meta.fill || "") ? "" : icon("file")}</div>
+      <div><strong>${escape(meta.id)}</strong><small>${escape(meta.type || "SVG shape")}</small></div>
+    </div>
+    <dl class="vector-stat-list">
+      <div><dt>Type</dt><dd>${escape(meta.type || "Unavailable")}</dd></div>
+      <div><dt>Fill</dt><dd>${escape(meta.fill || "Unavailable")}</dd></div>
+      <div><dt>Points</dt><dd>${meta.points == null ? "Unavailable" : escape(meta.points)}</dd></div>
+      <div><dt>Path Commands</dt><dd>${meta.commands == null ? "Unavailable" : escape(meta.commands)}</dd></div>
+    </dl>
+  </section>`;
+}
+
+function vectorColorPanel() {
+  const pp = part();
+  const fill = state.shapeMeta?.fill || "";
+  const validFill = /^#[0-9a-f]{6}$/i.test(fill);
+  const hsv = validFill ? hexToHsv(fill) : null;
+  const palette = (pp?.palette || [])
+    .map((color) => color?.hex)
+    .filter((value) => /^#[0-9a-f]{6}$/i.test(value || ""))
+    .slice(0, 12);
+
+  return `<section class="vector-inspector-section">
+    <h3>Color</h3>
+    ${state.shape
+      ? validFill
+        ? `<div class="vector-color-current">
+            <input type="color" id="shape-color" aria-label="Selected shape fill" value="${escape(fill)}" ${state.busy ? "disabled" : ""}>
+            <strong id="vector-fill-hex">${escape(fill.toUpperCase())}</strong>
+          </div>
+          <div class="vector-palette">${palette.map((color) => `<button class="vector-palette-swatch" style="background:${color}" data-action="palette" data-color="${color}" aria-label="Use palette color ${color}"></button>`).join("") || '<span class="vector-empty-copy">No engine palette available.</span>'}</div>
+          <div class="vector-hsv-readout">
+            <div><span>Hue</span><div><i style="width:${Math.round((hsv.h / 360) * 100)}%"></i></div><strong>${hsv.h}°</strong></div>
+            <div><span>Saturation</span><div><i style="width:${hsv.s}%"></i></div><strong>${hsv.s}%</strong></div>
+            <div><span>Brightness</span><div><i style="width:${hsv.v}%"></i></div><strong>${hsv.v}%</strong></div>
+          </div>
+          ${btn("Apply Color & Revalidate", "apply-fill", "vector-apply-color", false)}`
+        : `<p class="vector-empty-copy">This SVG object does not expose a simple hexadecimal fill. ReVector will not invent one for the color editor.</p>`
+      : `<p class="vector-empty-copy">Select a real SVG shape to enable color editing.</p>`}
+  </section>`;
+}
+
+function vectorPathTools() {
+  return `<section class="vector-inspector-section">
+    <h3>Vector Path Tools</h3>
+    <div class="vector-path-tools">
+      <button class="active" disabled>${icon("pen")}<span>Select</span></button>
+      <button disabled title="Direct anchor editing is not exposed by the engine">${icon("pen")}<span>Direct</span></button>
+      <button disabled title="Adding SVG anchor points is not exposed by the engine">${icon("plus")}<span>Add Point</span></button>
+      <button disabled title="Deleting SVG anchor points is not exposed by the engine">${icon("trash")}<span>Delete</span></button>
+      <button disabled title="Path smoothing is handled by the vector engine, not the browser UI">${icon("spark")}<span>Smooth</span></button>
+    </div>
+  </section>`;
+}
+
+function vectorInspector() {
+  return `<aside class="vector-inspector">
+    ${vectorSelectedPartPanel()}
+    ${vectorSelectedShapePanel()}
+    ${vectorColorPanel()}
+    ${vectorPathTools()}
+  </aside>`;
+}
+
+function vectorProgressPanel() {
+  const parts = state.project?.parts || [];
+  const readyCount = parts.filter(vectorPartReady).length;
+  const failedCount = parts.filter((pp) => pp.error).length;
+  const current = state.job?.process_event?.event;
+  const running = state.busy && ["TRACING_VECTOR", "OPTIMIZING_VECTOR", "VECTOR_READY"].includes(current);
+  const allReady = parts.length > 0 && readyCount === parts.length && failedCount === 0;
+
+  const rows = [
+    ["Tracing garment parts", "TRACING_VECTOR", readyCount > 0 || current === "OPTIMIZING_VECTOR" || current === "VECTOR_READY"],
+    ["Cleaning and simplifying paths", "OPTIMIZING_VECTOR", allReady || current === "VECTOR_READY"],
+    ["Converting to production vectors", "VECTOR_READY", allReady],
+    ["Preparing for validation", "VALIDATING_VECTOR", Boolean(state.project?.validation)],
+  ];
+
+  return `<section class="vector-progress-panel">
+    <div class="vector-progress-ring ${allReady ? "complete" : running ? "running" : ""}">
+      <span>${allReady ? icon("check") : running ? "LIVE" : "—"}</span>
+    </div>
+    <div class="vector-progress-copy">
+      <strong>${running ? "Vectorizing Jersey Artwork..." : allReady ? "Vector production completed" : failedCount ? "Vector production needs attention" : "Vector production status"}</strong>
+      <p>${running ? escape(processEventLabel(state.job?.process_event)) : `${readyCount} of ${parts.length || 0} real part vectors are currently ready.`}</p>
+      <div class="vector-progress-track ${running ? "running" : allReady ? "complete" : ""}"><span></span></div>
+      <div class="vector-progress-meta"><span>Job state: <strong>${escape(state.job?.job_state || state.project?.state || "Unavailable")}</strong></span><span>Failed parts: <strong>${failedCount}</strong></span></div>
+    </div>
+    <div class="vector-progress-stages">
+      ${rows.map(([title, event, complete]) => {
+        const active = current === event && state.busy;
+        return `<div class="vector-progress-stage ${complete ? "complete" : active ? "active" : "pending"}"><span>${complete ? icon("check") : ""}</span><strong>${escape(title)}</strong></div>`;
+      }).join("")}
     </div>
   </section>`;
 }
 
 function vectorMain() {
-  return `<main class="main-column vector-main">
-    <section class="card stack">
-      <div class="row between">
-        <div><div class="section-kicker">Production Geometry</div><h2>Vector Parts</h2></div>
-        ${badge(state.busy ? "Processing" : ready() ? "Validated" : "Review Vectors", state.busy ? "purple" : ready() ? "success" : "warning")}
+  return `<main class="main-column vector-reference-main">
+    ${vectorProductionCanvas()}
+    ${vectorProgressPanel()}
+    ${part()?.error ? `<section class="note error vector-recovery-card">
+      <strong>Selected part vectorization failed.</strong>
+      <span>${escape(part().error?.message || "The selected part requires isolated recovery.")}</span>
+      <div class="row wrap">
+        ${btn("Retry Failed Part", "recover-selected", "primary")}
+        ${btn("Use Fallback Trace", "recover-selected-fallback", "quiet")}
       </div>
-      ${vectorPartTiles()}
-    </section>
-    <div class="vector-split">
-      <div class="stack">
-        ${vectorPreview()}
-        <section class="card source-reference-card">
-          <div><strong>Source / Engine Reference</strong><p class="small muted">Reference only - never presented as editable vector.</p></div>
-          ${part() ? picture(part().clean_reference || part().corrected_crop, "Selected source reference") : ""}
-        </section>
-      </div>
-      <div class="stack">
-        ${state.busy ? processingPanel("Vector Production") : vectorControls()}
-      </div>
-    </div>
+    </section>` : ""}
   </main>`;
 }
-
 function partValidation(pp) {
   return state.project?.validation?.parts?.find((item) => item.part_id === pp.part_id) || null;
 }
