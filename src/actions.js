@@ -498,7 +498,11 @@ async function assistantHelp(question = "") {
         advice.supported_actions.includes(id),
       );
       state.assistantAdvice = advice;
-      if (response?.error_id) state.error.error_id = response.error_id;
+      if (response?.error_id) error.error_id = response.error_id;
+      // perform() temporarily clears state.error while guidance is loading.
+      // Restore the original engine error so the assistant never dereferences
+      // a null error and the recovery actions still target the real failure.
+      state.error = error;
       state.assistantOpen = true;
     },
     { allowDuringBusy: false },
