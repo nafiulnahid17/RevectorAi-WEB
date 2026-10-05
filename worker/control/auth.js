@@ -1,6 +1,8 @@
 import { configuration, database, ControlError, input, text } from "./db.js";
 const encoder = new TextEncoder();
-const lifetime = 7 * 24 * 3600;
+const USER_LIFETIME = 24 * 3600;
+const ADMIN_LIFETIME = 7 * 24 * 3600;
+const lifetime = (admin) => (admin ? ADMIN_LIFETIME : USER_LIFETIME);
 const name = (admin) => (admin ? "revector_admin_auth" : "revector_user_auth");
 const b64 = (b) =>
   btoa(String.fromCharCode(...new Uint8Array(b)))
@@ -21,7 +23,7 @@ async function key(env) {
     "decrypt",
   ]);
 }
-function cookie(request, admin, value, age = lifetime) {
+function cookie(request, admin, value, age = lifetime(admin)) {
   return `${name(admin)}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`;
 }
 export async function seal(request, env, admin, payload) {
@@ -61,7 +63,7 @@ async function open(request, env, admin) {
       unb64(data),
     );
     const p = JSON.parse(new TextDecoder().decode(clear));
-    if (Date.now() / 1000 - p.created > lifetime) return null;
+    if (Date.now() / 1000 - p.created > lifetime(admin)) return null;
     return p;
   } catch {
     return null;
@@ -231,7 +233,18 @@ export async function authRoute(request, env, transport, admin = false) {
       token: identity.access,
       body: { password },
     });
-    return Response.json({ updated: true });
+    const profile = (
+      await db.table(
+        "revector_profiles",
+        { id: "eq." + identity.user.id },
+        {
+          method: "PATCH",
+          body: { password_updated_at: new Date().toISOString() },
+          prefer: "return=representation",
+        },
+      )
+    )[0];
+    return Response.json({ updated: true, profile });
   }
   throw new ControlError("ROUTE_NOT_ALLOWED", 404);
 }
