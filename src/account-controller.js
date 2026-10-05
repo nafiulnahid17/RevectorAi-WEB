@@ -1,4 +1,9 @@
-import { account, currentPath, accountPage } from "./account-model.js";
+import {
+  account,
+  currentPath,
+  accountPage,
+  profileSetupRequired,
+} from "./account-model.js";
 let redraw = () => {};
 export function registerAccountRenderer(renderer) {
   redraw = () => {
@@ -38,8 +43,51 @@ export async function accountRequest(path, method = "GET", body) {
     );
   return data;
 }
+async function accountUpload(path, file) {
+  if (!(file instanceof File) || !file.size)
+    throw new Error("Choose a profile picture.");
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+    throw new Error("Use a JPG, PNG, or WEBP profile picture.");
+  if (file.size > 3 * 1024 * 1024)
+    throw new Error("Profile picture must be 3 MB or smaller.");
+  let response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": file.type },
+      body: file,
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new Error(
+      typeof navigator !== "undefined" && !navigator.onLine
+        ? "No internet connection. Profile picture was not uploaded."
+        : "Profile picture upload could not reach the account service.",
+    );
+  }
+  const raw = await response.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error("Profile picture service returned an invalid response.");
+  }
+  if (!response.ok)
+    throw Object.assign(
+      new Error(data.error?.message || "Profile picture could not be uploaded."),
+      { status: response.status, code: data.error?.code },
+    );
+  return data;
+}
 export async function navigateAccount(path) {
   if (!/^\/(?:dashboard(?:\/[^?#]*)?|login)?$/.test(path)) return;
+  if (
+    profileSetupRequired() &&
+    path.startsWith("/dashboard") &&
+    path !== "/dashboard/profile"
+  )
+    path = "/dashboard/profile";
   history.pushState({}, "", path);
   account.menu = false;
   account.error = "";
@@ -78,6 +126,8 @@ export async function initializeAccount() {
     const result = await accountRequest("/api/account/bootstrap");
     account.configured = result.configured;
     account.profile = result.profile;
+    account.setupPrompt =
+      Boolean(result.profile_setup_required) && currentPath() === "/";
   } catch {
     account.configured = null;
   }
@@ -90,8 +140,10 @@ export async function initializeAccount() {
         token_hash: token,
       });
       account.profile = data.profile;
-      history.replaceState({}, "", "/dashboard/profile");
-      account.notice = "Invitation accepted. Set your password.";
+      account.setupPrompt = true;
+      history.replaceState({}, "", "/");
+      account.notice =
+        "Invitation accepted. Complete your profile before using ReVector.";
     });
   } else if (
     typeof location !== "undefined" &&
@@ -100,6 +152,12 @@ export async function initializeAccount() {
     history.replaceState({}, "", currentPath());
     account.error = "Use the secure invitation link provided by the owner.";
   }
+  if (
+    profileSetupRequired() &&
+    currentPath().startsWith("/dashboard") &&
+    currentPath() !== "/dashboard/profile"
+  )
+    history.replaceState({}, "", "/dashboard/profile");
   await loadAccountPage();
   redraw();
 }
@@ -109,6 +167,12 @@ export async function loadAccountPage() {
   await guarded(async () => {
     const offset = "?offset=" + account.offset;
     if (!account.profile) return;
+    if (profileSetupRequired() && page !== "profile") {
+      history.replaceState({}, "", "/dashboard/profile");
+      account.data = {};
+      redraw();
+      return;
+    }
     const pages = {
       dashboard: ["wallet", "usage", "models", "preferences"],
       balance: ["wallet", "transactions"],
@@ -180,14 +244,46 @@ export async function accountClick(target) {
 }
 export async function accountSubmit(element) {
   const type = element.dataset.accountForm;
-  const data = Object.fromEntries(new FormData(element));
+  const formData = new FormData(element);
+  const data = Object.fromEntries(formData);
   await guarded(async () => {
     let result;
     if (type === "login") {
       result = await accountRequest("/api/auth/login", "POST", data);
       account.profile = result.profile;
+      account.setupPrompt = profileSetupRequired();
       account.notice = "";
       location.assign("/");
+      return;
+    }
+    if (type === "onboarding") {
+      const password = String(data.password || "");
+      const confirm = String(data.confirm_password || "");
+      if (password.length < 12)
+        throw new Error("Your new password must be at least 12 characters.");
+      if (password !== confirm) throw new Error("Passwords do not match.");
+      result = await accountRequest("/api/account/profile", "PATCH", {
+        name: String(data.name || ""),
+        company: String(data.company || ""),
+      });
+      account.profile = result.profile;
+      result = await accountUpload("/api/account/avatar", data.avatar);
+      account.profile = result.profile;
+      result = await accountRequest("/api/auth/password", "POST", { password });
+      if (result.profile) account.profile = result.profile;
+      result = await accountRequest("/api/account/profile/complete", "POST", {});
+      account.profile = result.profile;
+      account.avatarVersion++;
+      account.setupPrompt = false;
+      account.notice = "Profile setup complete. ReVector is ready.";
+      location.assign("/");
+      return;
+    }
+    if (type === "avatar") {
+      result = await accountUpload("/api/account/avatar", data.avatar);
+      account.profile = result.profile;
+      account.avatarVersion++;
+      account.notice = "Profile picture updated.";
       return;
     }
     const userRoutes = {
@@ -199,6 +295,7 @@ export async function accountSubmit(element) {
       const [url, method] = userRoutes[type];
       result = await accountRequest(url, method, data);
       if (type === "profile") account.profile = result.profile;
+      if (type === "password" && result.profile) account.profile = result.profile;
     } else if (["topup", "model-request", "support"].includes(type)) {
       if (type === "topup") {
         data.type = "TOPUP";
