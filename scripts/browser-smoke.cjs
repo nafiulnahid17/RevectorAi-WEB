@@ -138,6 +138,45 @@ const { execFileSync } = require("node:child_process");
     path: path.join(out, "00-enhance-real-empty-state.png"),
     fullPage: true,
   });
+
+  await page.locator('button[data-prep-view="mockup"]').click();
+  await page
+    .getByRole("heading", { name: "AI Jersey Mockup Preview", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator('img[alt="AI jersey pattern mockup"]').count(),
+    0,
+    "Mockup page must not fabricate a generated preview when no AI provider ran",
+  );
+  await page.getByText("No AI mockup available", { exact: true }).waitFor();
+  await page.getByText("File Size", { exact: true }).waitFor();
+  await page.getByText("Unavailable", { exact: true }).first().waitFor();
+  for (const fakeValue of [
+    "4200 × 3200 px",
+    "3.8 MB",
+    "4.1s",
+    "Labx AI 3.0",
+    "Labx AI 1.5",
+    "Sublimation Jersey",
+  ]) {
+    assert.equal(
+      await page.getByText(fakeValue, { exact: true }).count(),
+      0,
+      `Mockup page must not contain demo value ${fakeValue}`,
+    );
+  }
+  const slateBackground = page.locator(
+    '[data-action="mockup-background"][data-mockup-background="slate"]',
+  );
+  await slateBackground.click();
+  await page.waitForFunction(() =>
+    document.querySelector(".mockup-preview-frame")?.classList.contains("bg-slate"),
+  );
+  await page.screenshot({
+    path: path.join(out, "00b-mockup-real-empty-state.png"),
+    fullPage: true,
+  });
+
   await page.locator('button.step[data-step="2"]').click();
   await page
     .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
