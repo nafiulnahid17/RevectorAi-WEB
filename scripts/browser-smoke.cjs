@@ -91,9 +91,7 @@ const { execFileSync } = require("node:child_process");
     .locator("#file-input")
     .setInputFiles(path.resolve("public/assets/sample-layout.png"));
   await page.getByText("Uploading artwork...", { exact: true }).waitFor();
-  await page
-    .getByText("Preparing workspace and validating the source file.", { exact: true })
-    .waitFor();
+  await page.locator(".upload-reference-progress .upload-progress-track").waitFor();
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor({ timeout: 120000 });
