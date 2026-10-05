@@ -1707,7 +1707,8 @@ function render() {
   renderedAccountMarker = null;
   const p = state.project;
   const max = highestStep();
-  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : state.step === 1 ? "upload-reference-topbar analysis-reference-topbar" : ""}">
+  const prepView = state.preparationView || "analyze";
+  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : state.step === 1 ? `upload-reference-topbar ${prepView === "enhance" ? "enhance-reference-topbar" : "analysis-reference-topbar"}` : ""}">
       <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>${state.step === 1 ? "Turn jersey designs into production-ready vectors" : "Inside JerseyOS"}</small></div></div>
       <div class="topbar-center">${state.step <= 1 ? uploadHeaderStatuses() : ""}</div>
       <div class="right">
@@ -1732,7 +1733,7 @@ function render() {
     ${state.step <= 1 ? "" : connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
-    <div class="production-shell ${state.step <= 1 ? "upload-shell" : ""} ${state.step === 1 ? "analysis-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
+    <div class="production-shell ${state.step <= 1 ? "upload-shell" : ""} ${state.step === 1 ? (prepView === "enhance" ? "enhance-shell" : "analysis-shell") : ""}"><nav class="stepper" aria-label="Processing workflow">
       ${[
         ["Upload",0,"Jersey image or design file"],
         ["Analyze",1,"Detect structure & parts"],
@@ -1754,12 +1755,12 @@ function render() {
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
       : ""}
-    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : state.step === 1 ? "analysis-reference-workspace" : ""}">
+    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : state.step === 1 ? (prepView === "enhance" ? "enhance-reference-workspace" : "analysis-reference-workspace") : ""}">
       ${state.step <= 1 ? "" : state.step === 2 ? partInspector() : ""}
       ${state.step === 0
         ? inputMain()
         : state.step === 1
-          ? analysisMain()
+          ? (prepView === "enhance" ? enhanceMain() : analysisMain())
           : state.step === 2
             ? definitionMain()
             : state.step === 3
@@ -1767,7 +1768,7 @@ function render() {
               : state.step === 4
                 ? validationMain()
                 : downloadMain()}
-      ${state.step === 0 ? uploadSetupPanel() : state.step === 1 ? analysisInspector() : ""}
+      ${state.step === 0 ? uploadSetupPanel() : state.step === 1 ? (prepView === "enhance" ? enhancementInspector() : analysisInspector()) : ""}
     </div>
     ${state.step === 1 ? "" : footer()}
     </div></div>
