@@ -203,8 +203,10 @@ function updateProcessingUI() {
 }
 
 function setJob(job) {
+  const previousEvent = state.job?.process_event?.event || null;
   state.job = job;
-  if (job?.process_event?.event) {
+  const currentEvent = job?.process_event?.event || null;
+  if (currentEvent) {
     state.operation = processEventLabel(job.process_event);
     const part = state.project?.parts?.find((p) => p.part_id === job.process_event.part_id);
     state.operationDetail = part
@@ -212,9 +214,13 @@ function setJob(job) {
       : job.process_event.part_id
         ? `Part ${job.process_event.part_id}`
         : "";
+    if (currentEvent === "ANALYZING_ARTWORK") state.preparationView = "analyze";
+    if (currentEvent === "ENHANCING_ARTWORK") state.preparationView = "enhance";
+    if (currentEvent === "CREATING_PATTERN_MOCKUP") state.preparationView = "mockup";
   }
   persistActiveJob();
-  updateProcessingUI();
+  if (state.step === 1 && currentEvent && currentEvent !== previousEvent) render();
+  else updateProcessingUI();
 }
 
 function isNetworkInterruption(error) {
