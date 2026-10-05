@@ -60,6 +60,24 @@ app.addEventListener("input", (event) => {
 
   if (element.name === "project-name") state.projectName = element.value;
 
+  if (element.id === "topup-usd-preview") {
+    const hidden = document.querySelector("#topup-requested-credits");
+    if (hidden) hidden.value = element.value;
+    const rateText = document
+      .querySelector(".ud-amount-grid label:nth-child(2) em")
+      ?.textContent?.match(/([0-9]+(?:\.[0-9]+)?)/)?.[1];
+    const rate = Number(rateText);
+    const amount = Number(element.value);
+    const bdt = document.querySelector("#topup-bdt-preview");
+    if (bdt)
+      bdt.value =
+        Number.isFinite(amount) && amount > 0 && Number.isFinite(rate)
+          ? (amount * rate).toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            })
+          : "";
+  }
+
   if (
     element.name === "part-width" &&
     document.querySelector('[name="aspect-lock"]')?.checked &&
