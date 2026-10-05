@@ -1053,77 +1053,398 @@ function reviewReady() {
   return p.parts.every((pp) => ids.includes(pp.part_id));
 }
 
-function definitionMain() {
+function detectSlotDefinitions() {
+  const order = [
+    "FRONT_BODY",
+    "BACK_BODY",
+    "LEFT_SLEEVE",
+    "RIGHT_SLEEVE",
+    "FRONT_COLLAR",
+    "BACK_COLLAR",
+    "TOP_TRIM",
+    "BOTTOM_TRIM",
+  ];
+  return order
+    .map((key) => expectedSlots.find((slot) => slot.key === key))
+    .filter(Boolean);
+}
+
+function detectionMeta() {
+  const meta = state.project?.ai_metadata?.detection;
+  return meta && typeof meta === "object" ? meta : {};
+}
+
+function detectionEventNames() {
+  const stored = Array.isArray(state.project?.events)
+    ? state.project.events
+        .map((event) => (typeof event === "string" ? event : event?.event))
+        .filter(Boolean)
+    : [];
+  const current = state.job?.process_event?.event;
+  return { stored, current };
+}
+
+function eventReached(event) {
+  const sequence = [
+    "UPLOAD_RECEIVED",
+    "ANALYZING_ARTWORK",
+    "ENHANCING_ARTWORK",
+    "CREATING_PATTERN_MOCKUP",
+    "IDENTIFYING_PARTS",
+    "REFINING_PART_BOUNDARIES",
+    "PART_REVIEW_READY",
+  ];
+  const { stored, current } = detectionEventNames();
+  const observed = [...stored, current].filter(Boolean);
+  const target = sequence.indexOf(event);
+  return target >= 0 && observed.some((name) => sequence.indexOf(name) >= target);
+}
+
+function detectSourcePanel() {
   const p = state.project;
-  const extras = unassignedParts();
-  return `<main class="main-column detect-main">
-    <section class="card stack">
-      <div class="toolbar">
-        <div>
-          <div class="section-kicker">Human Review Gate</div>
-          <h2>8-Part Review</h2>
-          <p class="small muted">AI identifies components. ReVector Engine defines the production boundaries.</p>
-        </div>
-        <div class="tabs">
-          ${btn("Reference", "view-original", "tab " + (state.originalView ? "selected" : ""), Boolean(state.draw))}
-          ${btn("Boundaries", "view-boundaries", "tab " + (!state.originalView ? "selected" : ""), Boolean(state.draw))}
-        </div>
+  const meta = sourceMeta();
+  const source = p?.working_image || p?.thumbnail;
+  return `<section class="detect-preview-card">
+    <header><span>${icon("upload")}<strong>Input Jersey Image</strong></span></header>
+    <div class="detect-preview-art">
+      ${
+        source
+          ? picture(source, "Input jersey image")
+          : `<div class="detect-empty-preview">${icon("file")}<strong>Source image unavailable</strong><span>No source preview was returned by the engine.</span></div>`
+      }
+    </div>
+    <footer>
+      <span>${escape(fileTypeFromName(meta.filename))}</span>
+      <small>${escape(meta.size)}${meta.dimensions !== "Dimensions unavailable" ? ` • ${escape(meta.dimensions)}` : ""}</small>
+    </footer>
+  </section>`;
+}
+
+function detectMockupPanel() {
+  const p = state.project;
+  const mockup = p?.ai_assets?.mockup;
+  const meta = p?.ai_metadata?.mockup || {};
+  return `<section class="detect-preview-card mockup">
+    <header>
+      <span>${icon("spark")}<strong>AI Enhanced Mockup</strong><small>(Production Preview)</small></span>
+      ${mockup && meta.provider ? badge("AI Mockup", "purple") : badge("Unavailable")}
+    </header>
+    <div class="detect-preview-art">
+      ${
+        mockup
+          ? picture(mockup, "AI production mockup")
+          : `<div class="detect-empty-preview">${icon("spark")}<strong>No AI mockup available</strong><span>ReVector will not substitute or fabricate a production preview.</span></div>`
+      }
+    </div>
+    <footer>
+      <span>${mockup ? "AI MOCKUP" : "Unavailable"}</span>
+      <small>${meta.provider ? escape([meta.provider, meta.model].filter(Boolean).join(" • ")) : "No provider result recorded"}</small>
+    </footer>
+  </section>`;
+}
+
+function detectProcessRow(labelText, event, condition, skipped = false) {
+  const { current } = detectionEventNames();
+  const active = current === event && state.busy;
+  const complete = Boolean(condition);
+  const stateLabel = complete ? "Complete" : active ? "In progress" : skipped ? "Skipped" : "Pending";
+  return `<div class="detect-process-row ${complete ? "complete" : active ? "active" : skipped ? "skipped" : "pending"}">
+    <span class="detect-process-dot">${complete ? icon("check") : ""}</span>
+    <span><strong>${escape(labelText)}</strong><small>${escape(stateLabel)}</small></span>
+  </div>`;
+}
+
+function detectProcessingPanel() {
+  const p = state.project;
+  const detection = detectionMeta();
+  const mockup = p?.ai_assets?.mockup;
+  const enhancement = p?.ai_assets?.enhancement;
+  const { current } = detectionEventNames();
+  const aiAvailable = Boolean(
+    state.aiCapabilities?.primary_configured || state.aiCapabilities?.fallback_configured,
+  );
+  const reviewState = p?.state === "PART_REVIEW_READY" || current === "PART_REVIEW_READY";
+  const activeDetection =
+    state.busy && ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(current);
+  const completeDetection = Boolean(Object.keys(detection).length || reviewState);
+  const title = activeDetection
+    ? "Detecting jersey parts..."
+    : reviewState
+      ? "Part detection ready for review"
+      : "Part detection status";
+
+  return `<section class="detect-processing-card">
+    <div class="detect-processing-head">
+      <div class="detect-processing-ring ${reviewState ? "complete" : activeDetection ? "running" : ""}">
+        <span>${reviewState ? icon("check") : activeDetection ? "LIVE" : "—"}</span>
       </div>
-      ${artboard()}
-      ${state.draw
-        ? `<div class="draw-toolbar">
-            <p class="small">${state.draw === "add" ? `Select the exact boundary for ${escape(label(state.drawSlot))}.` : state.draw === "geometry" ? "Mark four corners clockwise, starting at top-left." : "Redraw the selected part boundary."}</p>
-            <div class="row">
-              ${btn("Cancel", "cancel-draw", "quiet")}
-              ${btn("Save Boundary", "save-draw", "primary", state.points.length < (state.draw === "geometry" ? 4 : 3))}
-            </div>
+      <div><strong>AI Processing Parts</strong><h3>${escape(title)}</h3><p>${activeDetection ? "The engine is identifying and refining real garment components." : reviewState ? "The engine has produced the current eight-slot review state." : "Waiting for engine detection state."}</p></div>
+    </div>
+    <div class="detect-process-list">
+      ${detectProcessRow("Input image loaded", "UPLOAD_RECEIVED", Boolean(p?.source_file))}
+      ${detectProcessRow("Analyzing structure", "ANALYZING_ARTWORK", Boolean(p?.analysis && Object.keys(p.analysis).length))}
+      ${detectProcessRow("Enhancing artwork", "ENHANCING_ARTWORK", Boolean(enhancement), !enhancement && eventReached("CREATING_PATTERN_MOCKUP"))}
+      ${detectProcessRow("Building AI mockup", "CREATING_PATTERN_MOCKUP", Boolean(mockup), !mockup && !aiAvailable && eventReached("REFINING_PART_BOUNDARIES"))}
+      ${detectProcessRow("Preparing part detection", "IDENTIFYING_PARTS", completeDetection)}
+      ${detectProcessRow("Finalizing parts", "PART_REVIEW_READY", reviewState)}
+      ${detectProcessRow("Ready for vectorization", "PART_REVIEW_READY", reviewReady())}
+    </div>
+  </section>`;
+}
+
+function detectSlotCard(definition, index) {
+  const slot = slotState(definition.key);
+  const pp = partForSlot(definition.key);
+  const status = slot.status || "missing";
+  const selected =
+    state.selectedSlot === definition.key ||
+    (pp?.part_id && state.selected === pp.part_id);
+  const confidence = Number.isFinite(slot.ai_confidence)
+    ? `${Math.round(slot.ai_confidence * 100)}% AI confidence`
+    : null;
+  const canAi = canCreateMissingWithAI();
+
+  return `<article class="detect-slot-card ${status} ${selected ? "active" : ""}">
+    <button class="detect-slot-select" data-action="select-slot" data-slot="${definition.key}">
+      <div class="detect-slot-title"><span>${index + 1}</span><strong>${escape(definition.label)}</strong></div>
+      <div class="detect-slot-image">
+        ${
+          pp?.corrected_crop
+            ? picture(pp.corrected_crop, definition.label)
+            : `<div class="detect-slot-placeholder">${icon("file")}</div>`
+        }
+      </div>
+    </button>
+    <div class="detect-slot-status">
+      ${badge(slotLabel(status), slotTone(status))}
+      ${confidence ? `<small>${escape(confidence)}</small>` : ""}
+    </div>
+    ${
+      status === "missing" || status === "blank"
+        ? `<div class="detect-slot-actions">
+            ${btn(icon("spark") + " AI Reconstruct", "create-missing", "", !canAi, `data-slot="${definition.key}" ${!canAi ? 'title="No AI provider is configured in the engine."' : ""}`)}
+            ${btn("Manual Select", "manual-slot", "quiet", false, `data-slot="${definition.key}"`)}
           </div>`
-        : ""}
-      ${p.ai_assets?.mockup
-        ? '<p class="note warning">The displayed AI production mockup is an intermediate reference only. It is not an editable vector or downloadable master pattern.</p>'
-        : ""}
-    </section>
+        : pp
+          ? `<div class="detect-slot-actions">
+              ${btn(pp.confirmed ? "Confirmed" : "Review Part", "select-part", pp.confirmed ? "quiet" : "", false, `data-id="${pp.part_id}"`)}
+            </div>`
+          : ""
+    }
+  </article>`;
+}
 
-    <section class="card stack">
-      <div class="row between">
-        <div>
-          <h2>Production Slots</h2>
-          <p class="small muted">Front/Back Body are body panels with collars treated as separate slots.</p>
-        </div>
-        ${badge(reviewReady() ? "Ready to Confirm" : "Review Required", reviewReady() ? "success" : "warning")}
-      </div>
-      <div class="slot-grid">
-        ${expectedSlots.map(slotCard).join("")}
-      </div>
-    </section>
-
-    ${extras.length
-      ? `<section class="card stack">
-          <div class="row between"><h3>Additional Components Requiring Classification</h3>${badge(extras.length, "warning")}</div>
-          <p class="small muted">The engine will not approve review while extra components remain unclassified.</p>
-          <div class="compact-parts">
-            ${extras
-              .map(
-                (pp) => `<button data-action="select-part" data-id="${pp.part_id}" class="${state.selected === pp.part_id ? "active" : ""}">
-                  ${picture(pp.corrected_crop, pp.name)}
-                  <span><strong>${escape(pp.name)}</strong><small>${escape(label(pp.type))}</small></span>
-                </button>`,
-              )
-              .join("")}
-          </div>
-        </section>`
-      : ""}
-
-    <section class="card review-confirm-card">
+function detectBoundaryEditor() {
+  if (!state.draw) return "";
+  return `<section class="detect-boundary-editor">
+    <div class="row between">
       <div>
-        <h2>Confirm Parts</h2>
-        <p class="small muted">Vector production begins automatically after the engine accepts all eight slot decisions.</p>
+        <div class="section-kicker">Manual Boundary Editor</div>
+        <h2>${state.draw === "add" ? `Select ${escape(label(state.drawSlot))}` : "Redraw Selected Part"}</h2>
+        <p class="small muted">${state.draw === "geometry" ? "Mark four corners clockwise, starting at top-left." : "Click around the exact garment boundary. The engine will store this manual geometry."}</p>
       </div>
-      ${btn(icon("check") + " Confirm Parts", "confirm-parts", "primary", !reviewReady() || Boolean(state.draw))}
+      <div class="row">
+        ${btn("Cancel", "cancel-draw", "quiet")}
+        ${btn("Save Boundary", "save-draw", "primary", state.points.length < (state.draw === "geometry" ? 4 : 3))}
+      </div>
+    </div>
+    ${artboard()}
+  </section>`;
+}
+
+function detectExtraComponents() {
+  const extras = unassignedParts();
+  if (!extras.length) return "";
+  return `<section class="detect-extras">
+    <div class="row between">
+      <div><h3>Additional Components Requiring Classification</h3><p class="small muted">Real engine components that are not assigned to one of the eight production slots.</p></div>
+      ${badge(extras.length, "warning")}
+    </div>
+    <div class="compact-parts">
+      ${extras.map((pp) => `<button data-action="select-part" data-id="${pp.part_id}" class="${state.selected === pp.part_id ? "active" : ""}">
+        ${picture(pp.corrected_crop, pp.name)}
+        <span><strong>${escape(pp.name)}</strong><small>${escape(label(pp.type))}</small></span>
+      </button>`).join("")}
+    </div>
+  </section>`;
+}
+
+function detectBottomBar() {
+  const p = state.project;
+  const slots = detectSlotDefinitions();
+  const resolved = slots.filter((def) => {
+    const status = p?.slots?.[def.key]?.status;
+    return status && status !== "missing" && status !== "uncertain";
+  }).length;
+  const active = state.busy && ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(state.job?.process_event?.event);
+  const readyForProduction = reviewReady();
+
+  return `<section class="detect-bottom-bar ${readyForProduction ? "ready" : active ? "processing" : ""}">
+    <span class="detect-bottom-icon">${active ? '<span class="spinner"></span>' : readyForProduction ? icon("check") : icon("alert")}</span>
+    <div class="detect-bottom-copy">
+      <strong>${active ? "Processing detected parts..." : readyForProduction ? "8-part review is ready" : "Part review requires attention"}</strong>
+      <small>${active ? escape(processEventLabel(state.job?.process_event)) : readyForProduction ? "All nonblank production slots have confirmed engine geometry." : `${resolved} of 8 slots currently resolved for review.`}</small>
+    </div>
+    <div class="detect-bottom-progress ${active ? "running" : readyForProduction ? "complete" : ""}"><span></span></div>
+    <span class="detect-bottom-step">Step 5 of 8</span>
+    ${btn("Next: Vectorize " + icon("chevron"), "confirm-parts", "detect-next-button", !readyForProduction || Boolean(state.draw))}
+  </section>`;
+}
+
+function definitionMain() {
+  return `<main class="main-column detect-reference-main">
+    <section class="detect-top-grid">
+      ${detectSourcePanel()}
+      ${detectMockupPanel()}
+      ${detectProcessingPanel()}
     </section>
+
+    ${detectBoundaryEditor()}
+
+    <section class="detect-parts-section">
+      <div class="detect-parts-head">
+        <div><h2>Detected Jersey Parts (8)</h2><p>AI may suggest part identity when available. ReVector Engine controls the exact review boundary and slot state.</p></div>
+        <div class="detect-view-tabs">
+          <button class="selected" disabled>${detectionMeta().source === "mockup" ? "AI Suggested Parts" : "Engine Parts"}</button>
+          <button disabled title="Split View is not exposed by the current engine UI">Split View</button>
+        </div>
+      </div>
+      <div class="detect-slot-grid">
+        ${detectSlotDefinitions().map(detectSlotCard).join("")}
+      </div>
+    </section>
+
+    ${detectExtraComponents()}
+    ${detectBottomBar()}
   </main>`;
 }
 
+function detectAverageConfidence() {
+  const values = detectSlotDefinitions()
+    .map((def) => state.project?.slots?.[def.key]?.ai_confidence)
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 1000) / 10;
+}
+
+function detectPartEditor(pp, matchingSlot) {
+  return `<form id="part-form" class="detect-part-form">
+    <div class="detect-selected-part">
+      <div class="detect-selected-thumb">${pp?.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
+      <div><strong>${escape(pp.name)}</strong><small>${escape(matchingSlot?.label || label(pp.type))}</small>${pp.ai_confidence != null ? `<em>${Math.round(pp.ai_confidence * 100)}% AI confidence</em>` : ""}</div>
+    </div>
+    <input type="hidden" name="part-name" value="${escape(pp.name)}">
+    <input type="hidden" name="part-type" value="${escape(pp.type)}">
+    <input type="hidden" name="part-width" value="${escape(pp.physical_width_mm || "")}">
+    <input type="hidden" name="part-height" value="${escape(pp.physical_height_mm || "")}">
+    <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
+    <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
+    ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
+    ${btn(icon("pen") + " Redraw Boundary", "draw-update", "quiet full-width", pp.locked)}
+    ${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
+  </form>`;
+}
+
+function detectInspector() {
+  const p = state.project;
+  const meta = sourceMeta();
+  const slots = detectSlotDefinitions();
+  const missing = slots.filter((def) => state.project?.slots?.[def.key]?.status === "missing");
+  const detected = slots.filter((def) => {
+    const status = state.project?.slots?.[def.key]?.status;
+    return status && !["missing", "blank"].includes(status);
+  });
+  const uncertain = slots.filter((def) => state.project?.slots?.[def.key]?.status === "uncertain");
+  const blank = slots.filter((def) => state.project?.slots?.[def.key]?.status === "blank");
+  const confidence = detectAverageConfidence();
+  const detection = detectionMeta();
+  const identification = p?.ai_metadata?.identification || {};
+  const selectedPart = part();
+  const matchingSlot = selectedPart
+    ? slots.find((def) => p?.slots?.[def.key]?.part_id === selectedPart.part_id)
+    : null;
+  const fallbackSlot =
+    state.selectedSlot ||
+    missing[0]?.key ||
+    uncertain[0]?.key ||
+    slots[0]?.key ||
+    null;
+  const selectedDef = matchingSlot || slots.find((def) => def.key === fallbackSlot) || null;
+  const selectedState = selectedDef ? slotState(selectedDef.key) : null;
+  const selectedSlotPart = selectedDef ? partForSlot(selectedDef.key) : null;
+  const effectivePart = selectedPart || selectedSlotPart;
+  const canAi = canCreateMissingWithAI();
+  const detectionMode = identification.provider
+    ? "AI + Engine"
+    : (p?.parts || []).some((pp) => pp.source === "manual")
+      ? "Engine + Manual"
+      : "Engine";
+  const boundaryMode = detection.geometry_source === "opencv"
+    ? "OpenCV refinement"
+    : detection.geometry_source
+      ? label(detection.geometry_source)
+      : "Unavailable";
+
+  return `<aside class="detect-inspector">
+    <header><strong>Inspector</strong><span>${icon("refresh")}</span></header>
+
+    <section>
+      <h3>Source Image</h3>
+      <div class="detect-inspector-source">
+        <div class="detect-inspector-thumb">${p?.thumbnail || p?.working_image ? picture(p.thumbnail || p.working_image, "Source image") : icon("file")}</div>
+        <dl>
+          <div><dt>File Name</dt><dd>${escape(meta.filename)}</dd></div>
+          <div><dt>File Size</dt><dd>${escape(meta.size)}</dd></div>
+          <div><dt>Dimensions</dt><dd>${escape(meta.dimensions)}</dd></div>
+          <div><dt>File Type</dt><dd>${escape(fileTypeFromName(meta.filename))}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section>
+      <h3>Detection Summary</h3>
+      <div class="detect-summary-list">
+        <div><span>${icon("file")} Detected Slots</span><strong>${detected.length} / 8</strong></div>
+        <div><span>${icon("spark")} Avg AI Confidence</span><strong>${confidence == null ? "Unavailable" : `${confidence}%`}</strong></div>
+        <div><span>${icon("settings")} Part Detection Mode</span><strong>${escape(detectionMode)}</strong></div>
+        <div><span>${icon("settings")} Exact Boundaries</span><strong>${escape(boundaryMode)}</strong></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Missing / Unresolved Parts</h3>
+      ${
+        missing.length || uncertain.length
+          ? `<div class="detect-missing-list">
+              ${[...missing, ...uncertain].map((def) => {
+                const status = p?.slots?.[def.key]?.status || "missing";
+                return `<button data-action="select-slot" data-slot="${def.key}" class="${selectedDef?.key === def.key ? "active" : ""}">
+                  <span>${escape(def.label)}</span><small>${escape(slotLabel(status))}</small>
+                </button>`;
+              }).join("")}
+            </div>`
+          : `<p class="detect-empty-copy">No missing or uncertain production slots.</p>`
+      }
+      ${blank.length ? `<p class="detect-empty-copy">${blank.length} slot${blank.length === 1 ? "" : "s"} intentionally left blank.</p>` : ""}
+    </section>
+
+    <section>
+      <h3>Part Controls</h3>
+      ${
+        effectivePart
+          ? detectPartEditor(effectivePart, matchingSlot || selectedDef)
+          : selectedDef && selectedState
+            ? `<div class="detect-missing-control">
+                <div><strong>${escape(selectedDef.label)}</strong><small>${escape(slotLabel(selectedState.status))}</small></div>
+                ${btn(icon("spark") + " Reconstruct with AI", "create-missing", "detect-inspector-primary", !canAi, `data-slot="${selectedDef.key}" ${!canAi ? 'title="No AI provider is configured in the engine."' : ""}`)}
+                ${btn("Manual Select", "manual-slot", "quiet full-width", false, `data-slot="${selectedDef.key}"`)}
+                ${btn("Keep Blank (Skip)", "leave-blank", "quiet full-width", false, `data-slot="${selectedDef.key}"`)}
+              </div>`
+            : `<p class="detect-empty-copy">Select a production slot or engine component to review it.</p>`
+      }
+    </section>
+  </aside>`;
+}
 function sizeRequirementOptions() {
   const combined = state.requirements;
   if (!combined.length) return "";
