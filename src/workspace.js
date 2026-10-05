@@ -63,10 +63,7 @@ app.addEventListener("input", (event) => {
   if (element.id === "topup-usd-preview") {
     const hidden = document.querySelector("#topup-requested-credits");
     if (hidden) hidden.value = element.value;
-    const rateText = document
-      .querySelector(".ud-amount-grid label:nth-child(2) em")
-      ?.textContent?.match(/([0-9]+(?:\.[0-9]+)?)/)?.[1];
-    const rate = Number(rateText);
+    const rate = Number(element.dataset.rate);
     const amount = Number(element.value);
     const bdt = document.querySelector("#topup-bdt-preview");
     if (bdt)
