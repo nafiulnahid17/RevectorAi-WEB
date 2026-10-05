@@ -53,6 +53,7 @@ const state = {
   project: null,
   selected: null,
   step: 0,
+  preparationView: "analyze",
   preset: "BALANCED",
   mode: "color",
   view: "vector",
