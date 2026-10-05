@@ -1005,7 +1005,7 @@ function mockupFileType() {
   const asset = mockupAsset();
   if (!asset) return "Unavailable";
   const type = fileTypeFromName(asset);
-  return type === "File" ? "Unavailable" : `${type} (Preview)`;
+  return type === "Unavailable" ? "Unavailable" : `${type} (Preview)`;
 }
 
 function mockupFileSize() {
