@@ -116,7 +116,7 @@ const { execFileSync } = require("node:child_process");
     "TOP_TRIM",
   ]);
 
-  await page.getByRole("button", { name: /^Enhance\b/ }).click();
+  await page.locator('button[data-prep-view="enhance"]').click();
   await page
     .getByRole("heading", { name: "Enhance Your Jersey Artwork", exact: true })
     .waitFor();
@@ -138,7 +138,7 @@ const { execFileSync } = require("node:child_process");
     path: path.join(out, "00-enhance-real-empty-state.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: /^Detect Parts\b/ }).click();
+  await page.locator('button.step[data-step="2"]').click();
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
     .waitFor();
