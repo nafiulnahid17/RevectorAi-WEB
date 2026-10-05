@@ -17,7 +17,7 @@ const path = require("node:path");
     const restricted = await browser.newPage({ javaScriptEnabled: false });
     await restricted.setContent(html);
     await restricted
-      .getByRole("heading", { name: "Upload Artwork", exact: true })
+      .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
       .waitFor();
     assert.equal(
       await restricted
@@ -110,7 +110,7 @@ const path = require("node:path");
       waitUntil: "domcontentloaded",
     });
     await page
-      .getByRole("heading", { name: "Upload Artwork", exact: true })
+      .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
       .waitFor({ timeout: 1500 });
     assert.equal(await page.getByRole("button", { name: /Retry/ }).count(), 0);
     await page
