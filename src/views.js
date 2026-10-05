@@ -937,6 +937,245 @@ function enhanceMain() {
   </main>`;
 }
 
+function mockupMeta() {
+  const meta = state.project?.ai_metadata?.mockup;
+  return meta && typeof meta === "object" ? meta : {};
+}
+
+function mockupAsset() {
+  return state.project?.ai_assets?.mockup || "";
+}
+
+function mockupRunning() {
+  return Boolean(
+    state.step === 1 &&
+      state.job?.process_event?.event === "CREATING_PATTERN_MOCKUP" &&
+      !["SUCCEEDED", "FAILED", "CANCELLED"].includes(state.job?.job_state),
+  );
+}
+
+function mockupComplete() {
+  const meta = mockupMeta();
+  return Boolean(mockupAsset() && meta.provider && meta.mockup_generated === true);
+}
+
+function mockupDuration() {
+  const ms = finiteNumber(mockupMeta().duration_ms);
+  if (ms === null || ms < 0) return "Unavailable";
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+}
+
+function mockupProviderText() {
+  const meta = mockupMeta();
+  const values = [meta.provider, meta.model].filter(Boolean);
+  return values.length ? values.join(" • ") : "Unavailable";
+}
+
+function mockupDimensions() {
+  const actual = mockupMeta().actual_dimensions;
+  if (
+    Array.isArray(actual) &&
+    actual.length >= 2 &&
+    Number.isFinite(Number(actual[0])) &&
+    Number.isFinite(Number(actual[1]))
+  )
+    return `${actual[0]} × ${actual[1]} px`;
+  return "Unavailable";
+}
+
+function mockupRequestedDimensions() {
+  const requested = mockupMeta().requested_dimensions;
+  if (
+    Array.isArray(requested) &&
+    requested.length >= 2 &&
+    Number.isFinite(Number(requested[0])) &&
+    Number.isFinite(Number(requested[1]))
+  )
+    return `${requested[0]} × ${requested[1]} px`;
+  const settings = state.project?.settings || {};
+  if (
+    Number.isFinite(Number(settings.mockup_width)) &&
+    Number.isFinite(Number(settings.mockup_height))
+  )
+    return `${settings.mockup_width} × ${settings.mockup_height} px`;
+  return "Unavailable";
+}
+
+function mockupFileType() {
+  const asset = mockupAsset();
+  if (!asset) return "Unavailable";
+  const type = fileTypeFromName(asset);
+  return type === "File" ? "Unavailable" : `${type} (Preview)`;
+}
+
+function mockupFileSize() {
+  const meta = mockupMeta();
+  const value =
+    meta.file_size_bytes ??
+    meta.size_bytes ??
+    meta.output_bytes ??
+    null;
+  return value == null ? "Unavailable" : formatBytes(value);
+}
+
+function mockupDetectReady() {
+  const p = state.project;
+  const statuses = Object.values(p?.slots || {}).map((slot) => slot?.status);
+  return Boolean(
+    p?.state === "PART_REVIEW_READY" ||
+      ((p?.parts || []).length > 0 &&
+        statuses.some((status) =>
+          ["detected", "uncertain", "manual", "ai_reconstructed", "confirmed", "blank"].includes(status),
+        )),
+  );
+}
+
+function mockupVisualControls() {
+  const backgrounds = [
+    ["navy", "Dark Navy"],
+    ["slate", "Slate"],
+    ["white", "White"],
+    ["checker", "Transparent Grid"],
+    ["red", "Red"],
+  ];
+  const lighting = [
+    ["neutral", "Neutral"],
+    ["soft", "Soft"],
+    ["bright", "Bright"],
+  ];
+  return `<section class="mockup-visual-card">
+    <header><span>${icon("spark")}<strong>Visual Options</strong></span><small>Display only</small></header>
+    <div class="mockup-option-group">
+      <label>Background</label>
+      <div class="mockup-background-options">
+        ${backgrounds.map(([value, title]) => btn(
+          "",
+          "mockup-background",
+          `mockup-bg-swatch ${state.mockupBackground === value ? "selected" : ""} ${value}`,
+          false,
+          `data-mockup-background="${value}" aria-label="${title}" title="${title}"`,
+        )).join("")}
+      </div>
+    </div>
+    <div class="mockup-option-group">
+      <label>Lighting</label>
+      <div class="mockup-lighting-options">
+        ${lighting.map(([value, title]) => btn(
+          `<span></span>`,
+          "mockup-lighting",
+          `mockup-lighting-choice ${state.mockupLighting === value ? "selected" : ""} ${value}`,
+          false,
+          `data-mockup-lighting="${value}" aria-label="${title}" title="${title}"`,
+        )).join("")}
+      </div>
+    </div>
+    <p>These controls only change how the stored preview is displayed in the browser. They do not claim to regenerate or alter the engine mockup.</p>
+  </section>`;
+}
+
+function mockupPreviewFrame() {
+  const asset = mockupAsset();
+  const running = mockupRunning();
+  const background = state.mockupBackground || "navy";
+  const lighting = state.mockupLighting || "neutral";
+  return `<section class="mockup-preview-frame bg-${escape(background)} light-${escape(lighting)}">
+    <div class="mockup-view-toolbar">
+      <div class="mockup-view-tabs">
+        <button class="selected" disabled>2D Pattern View</button>
+        <button disabled title="The current ReVector engine does not provide a 3D jersey asset.">3D Jersey View</button>
+      </div>
+      ${btn("⛶ Full Screen", "mockup-fullscreen", "mockup-fullscreen-button", !asset)}
+    </div>
+    <div class="mockup-art-stage">
+      ${asset
+        ? picture(asset, "AI jersey pattern mockup", "mockup-main-image")
+        : `<div class="mockup-empty-preview">${icon("file")}<strong>${running ? "Creating AI mockup..." : "No AI mockup available"}</strong><span>${running ? "The engine is waiting for a real provider result." : "ReVector will not fabricate a mockup when no generated asset exists."}</span></div>`}
+      <div class="mockup-light-overlay" aria-hidden="true"></div>
+    </div>
+  </section>`;
+}
+
+function mockupMain() {
+  const complete = mockupComplete();
+  const running = mockupRunning();
+  return `<main class="main-column mockup-reference-main">
+    <section class="mockup-hero">
+      <div class="mockup-hero-icon">${icon("file")}</div>
+      <div>
+        <span class="mockup-step-label">Step 4 of 8</span>
+        <h1>AI Jersey Mockup Preview</h1>
+        <p>${complete
+          ? "This is the real pattern mockup stored by ReVector's configured AI provider before part review and vectorization."
+          : running
+            ? "ReVector is creating the production reference with the configured AI route. No preview is shown until the engine stores a real result."
+            : "A generated production reference appears here only when the engine has a real AI mockup asset."}</p>
+      </div>
+    </section>
+    ${mockupPreviewFrame()}
+  </main>`;
+}
+
+function mockupInspector() {
+  const p = state.project;
+  const meta = mockupMeta();
+  const complete = mockupComplete();
+  const running = mockupRunning();
+  const route =
+    meta.processing_mode === "fallback_ai"
+      ? "Fallback AI"
+      : meta.processing_mode === "primary_ai"
+        ? "Primary AI"
+        : "Unavailable";
+  const reviewFlag =
+    typeof meta.inferred_surfaces_require_review === "boolean"
+      ? meta.inferred_surfaces_require_review
+        ? "Review required"
+        : "No review flag"
+      : "Unavailable";
+  const readyForDetect = mockupDetectReady();
+
+  return `<aside class="mockup-inspector">
+    <section class="mockup-info-card">
+      <header><span>${icon("file")}<strong>Mockup Information</strong></span></header>
+      <dl>
+        <div><dt>${icon("settings")} Style</dt><dd>Production Pattern Mockup</dd></div>
+        <div><dt>${icon("eye")} View</dt><dd>2D Pattern Mockup</dd></div>
+        <div><dt>${icon("ruler")} Dimensions</dt><dd>${escape(mockupDimensions())}</dd></div>
+        <div><dt>${icon("file")} File Size</dt><dd>${escape(mockupFileSize())}</dd></div>
+        <div><dt>${icon("file")} File Type</dt><dd>${escape(mockupFileType())}</dd></div>
+      </dl>
+    </section>
+
+    <section class="mockup-generated-card ${complete ? "complete" : running ? "running" : ""}">
+      <header>
+        <span class="mockup-generated-status">${complete ? icon("check") : running ? '<span class="spinner"></span>' : icon("file")}</span>
+        <strong>${complete ? "AI Generated Mockup" : running ? "Generating AI Mockup" : "AI Mockup Unavailable"}</strong>
+        <small>${escape(mockupDuration())}</small>
+      </header>
+      <p>${complete
+        ? `Generated by ${escape(mockupProviderText())}.`
+        : running
+          ? "The configured provider is processing the mockup."
+          : "No successful provider mockup is stored for this project."}</p>
+      <dl>
+        <div><dt>Route</dt><dd>${escape(route)}</dd></div>
+        <div><dt>Provider / Model</dt><dd>${escape(mockupProviderText())}</dd></div>
+        <div><dt>Requested Canvas</dt><dd>${escape(mockupRequestedDimensions())}</dd></div>
+        <div><dt>Surface Review</dt><dd>${escape(reviewFlag)}</dd></div>
+      </dl>
+    </section>
+
+    ${mockupVisualControls()}
+
+    <section class="mockup-continue-wrap">
+      ${readyForDetect
+        ? btn(`${icon("spark")} Continue to Detect Parts ${icon("chevron")}`, "navigate", "mockup-continue-button", false, 'data-step="2"')
+        : `<button class="mockup-continue-button" disabled>${running ? "Preparing detected parts…" : "Detect Parts Not Ready"}</button>`}
+      <small>${readyForDetect ? "Detected structure is available for Step 5 review." : "This becomes available only after the engine reports real detected structure."}</small>
+    </section>
+  </aside>`;
+}
+
 function correctedSize() {
   return (
     state.project?.geometry?.output_dimensions ||
