@@ -254,7 +254,7 @@ function dashboardPage(d,p,w,models) {
     </div>
     <section class="ud-workspace-cta">
       <div class="ud-orb"><img src="/assets/revector-ai-logo.svg" alt=""></div>
-      <div><h2>Ready to create production-ready jersey vectors?</h2><p>Open the production workspace and continue with your real ReVector projects.</p><a class="ud-primary-button" href="/" data-account="nav">Open Production Workspace <span>→</span></a></div>
+      <div><h2>Ready to create production-ready jersey vectors?</h2><p>Open the production workspace and continue with your real ReVector projects.</p><a class="ud-primary-button" href="/" data-account="nav">Open Production Workspace <span aria-hidden="true">→</span></a></div>
       <ul><li>AI-assisted vectorization</li><li>Engine-controlled boundaries</li><li>Production-ready export validation</li></ul>
     </section>
     <div class="ud-preferences">
