@@ -181,6 +181,11 @@ const { execFileSync } = require("node:child_process");
   await page
     .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
     .waitFor();
+  await page
+    .getByRole("heading", { name: "Detect Jersey Parts", exact: true })
+    .waitFor();
+  await page.locator(".detect-pattern-frame").waitFor();
+  await page.locator(".detect-status-panel").waitFor();
 
   assert.equal(
     await page.locator('img[alt="AI production mockup"]').count(),
@@ -188,7 +193,21 @@ const { execFileSync } = require("node:child_process");
     "Detected Parts must not fabricate an AI mockup when no provider ran",
   );
   await page.getByText("No AI mockup available", { exact: true }).waitFor();
-  for (const fakeValue of ["75%", "92%", "2.1s", "4.3s", "6.8s", "Claude 3.5 Sonnet", "GPT-4o"]) {
+  for (const fakeValue of [
+    "75%",
+    "87%",
+    "92%",
+    "62%",
+    "2.1s",
+    "4.3s",
+    "6.8s",
+    "Size 21",
+    "Size 31",
+    "Labx AI 3.0",
+    "Labx AI 1.5",
+    "Claude 3.5 Sonnet",
+    "GPT-4o",
+  ]) {
     assert.equal(
       await page.getByText(fakeValue, { exact: true }).count(),
       0,
