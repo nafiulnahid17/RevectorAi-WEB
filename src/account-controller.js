@@ -121,8 +121,49 @@ export async function initializeAccount() {
   const params = new URLSearchParams(
     typeof location !== "undefined" ? location.search : "",
   );
+  const hash = new URLSearchParams(
+    typeof location !== "undefined" ? location.hash.replace(/^#/, "") : "",
+  );
   const token = params.get("token_hash");
-  if (token) history.replaceState({}, "", currentPath());
+  const queryInvite = token && params.get("type") === "invite";
+  const hashInvite =
+    hash.get("type") === "invite" &&
+    hash.get("access_token") &&
+    hash.get("refresh_token");
+
+  if (queryInvite || hashInvite) {
+    account.profile = null;
+    account.setupPrompt = false;
+    account.error = "";
+    account.notice = "";
+    history.replaceState({}, "", "/login");
+    let accepted = false;
+    await guarded(async () => {
+      const payload = queryInvite
+        ? { token_hash: token }
+        : {
+            access_token: hash.get("access_token"),
+            refresh_token: hash.get("refresh_token"),
+            expires_in: Number(hash.get("expires_in") || 3600),
+          };
+      const data = await accountRequest("/api/auth/invitation", "POST", payload);
+      account.configured = true;
+      account.profile = data.profile;
+      account.setupPrompt = true;
+      account.notice =
+        "Invitation accepted. Complete your profile before using ReVector.";
+      history.replaceState({}, "", "/dashboard/profile");
+      accepted = true;
+    });
+    if (!accepted) {
+      account.profile = null;
+      history.replaceState({}, "", "/login");
+    }
+    await loadAccountPage();
+    redraw();
+    return;
+  }
+
   try {
     const result = await accountRequest("/api/account/bootstrap");
     account.configured = result.configured;
@@ -131,25 +172,7 @@ export async function initializeAccount() {
       Boolean(result.profile_setup_required) && currentPath() === "/";
   } catch {
     account.configured = null;
-  }
-  if (token && params.get("type") === "invite") {
-    history.replaceState({}, "", "/login");
-    await guarded(async () => {
-      const data = await accountRequest("/api/auth/invitation", "POST", {
-        token_hash: token,
-      });
-      account.profile = data.profile;
-      account.setupPrompt = true;
-      history.replaceState({}, "", "/");
-      account.notice =
-        "Invitation accepted. Complete your profile before using ReVector.";
-    });
-  } else if (
-    typeof location !== "undefined" &&
-    location.hash.includes("access_token")
-  ) {
-    history.replaceState({}, "", currentPath());
-    account.error = "Use the secure invitation link provided by the owner.";
+    account.profile = null;
   }
   if (
     profileSetupRequired() &&
