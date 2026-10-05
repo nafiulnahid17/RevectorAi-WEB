@@ -1,7 +1,7 @@
 import manifest from "./security-manifest.json" with { type: "json" };
 import { session } from "./session.js";
 import { safeUpload } from "./upload.js";
-import { enabled, failure, boundedJSON, ControlError, uuid } from "./control/db.js";
+import { configured, failure, boundedJSON, ControlError, uuid } from "./control/db.js";
 import { authenticate } from "./control/auth.js";
 import { controlRoute } from "./control/routes.js";
 import { reserve, bind, finish, reconcileJob, assistantUsage } from "./control/billing.js";
@@ -92,10 +92,17 @@ export async function handle(request, env, transport = fetch) {
   let identity, reservation;
   try {
     const origin = engineOrigin(env);
-    identity =
-      enabled(env) && !readiness
-        ? await authenticate(request, env, transport)
-        : await session(request, env);
+    if (readiness) {
+      identity = await session(request, env);
+    } else {
+      if (!configured(env))
+        throw new ControlError(
+          "CONTROL_NOT_CONFIGURED",
+          503,
+          "Private ReVector access requires the configured account service.",
+        );
+      identity = await authenticate(request, env, transport);
+    }
     const informationalRoute =
       request.method === "GET" &&
       ["/api/revector/capabilities/ai", "/api/revector/error-catalog"].includes(
