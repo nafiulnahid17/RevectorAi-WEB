@@ -52,7 +52,7 @@ const { execFileSync } = require("node:child_process");
   });
 
   await page.goto(base);
-  await page.getByText("Engine connected", { exact: true }).waitFor();
+  await page.locator('[data-connection="engine"].connected').waitFor();
   await page
     .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
     .waitFor();
