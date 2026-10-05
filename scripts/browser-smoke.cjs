@@ -54,7 +54,7 @@ const { execFileSync } = require("node:child_process");
   await page.goto(base);
   await page.getByText("Engine connected", { exact: true }).waitFor();
   await page
-    .getByRole("heading", { name: "Upload Artwork", exact: true })
+    .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
     .waitFor();
 
   const engineStatuses = page.locator(".engine-card");
@@ -90,7 +90,7 @@ const { execFileSync } = require("node:child_process");
   await page
     .locator("#file-input")
     .setInputFiles(path.resolve("public/assets/sample-layout.png"));
-  await page.getByText("Uploading Artwork...", { exact: true }).waitFor();
+  await page.getByText("Uploading artwork...", { exact: true }).waitFor();
   await page
     .getByText("Preparing your file for processing.", { exact: true })
     .waitFor();
