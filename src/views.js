@@ -2067,11 +2067,11 @@ function render() {
   const p = state.project;
   const max = highestStep();
   const prepView = state.preparationView || "analyze";
-  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : state.step === 1 ? `upload-reference-topbar ${prepView === "enhance" ? "enhance-reference-topbar" : "analysis-reference-topbar"}` : ""}">
+  app.innerHTML = `<header class="topbar ${state.step === 0 ? "upload-reference-topbar" : state.step === 1 ? `upload-reference-topbar ${prepView === "enhance" ? "enhance-reference-topbar" : "analysis-reference-topbar"}` : state.step === 2 ? "upload-reference-topbar detect-reference-topbar" : ""}">
       <div class="brand revector-brand"><img class="brand-logo" src="/assets/revector-ai-logo.svg" alt=""><div><h1>ReVector AI</h1><small>${state.step === 1 ? "Turn jersey designs into production-ready vectors" : "Inside JerseyOS"}</small></div></div>
-      <div class="topbar-center">${state.step <= 1 ? uploadHeaderStatuses() : ""}</div>
+      <div class="topbar-center">${state.step <= 2 ? uploadHeaderStatuses() : ""}</div>
       <div class="right">
-        ${state.step <= 1 ? "" : btn("New Artwork", "new-project", "quiet")}
+        ${state.step <= 2 ? "" : btn("New Artwork", "new-project", "quiet")}
         ${profileMenu()}
         ${btn(icon("menu"), "menu-toggle", "icon-button menu-button", false, 'aria-label="Open JerseyOS menu"')}
       </div>
@@ -2089,17 +2089,17 @@ function render() {
         <div class="bootstrap-status"><span class="spinner"></span>${escape(startupCurrentLabel())}</div>
       </div>
     </div>` : ""}
-    ${state.step <= 1 ? "" : connectionStatus()}
+    ${state.step <= 2 ? "" : connectionStatus()}
     ${connectionLost()}
     ${uploadStatusDialog()}
-    <div class="production-shell ${state.step <= 1 ? "upload-shell" : ""} ${state.step === 1 ? (prepView === "enhance" ? "enhance-shell" : "analysis-shell") : ""}"><nav class="stepper" aria-label="Processing workflow">
+    <div class="production-shell ${state.step <= 2 ? "upload-shell" : ""} ${state.step === 1 ? (prepView === "enhance" ? "enhance-shell" : "analysis-shell") : state.step === 2 ? "detect-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
       ${productionStepper(p, max, prepView)}
     </nav><div class="production-content">
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
       : ""}
-    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : state.step === 1 ? (prepView === "enhance" ? "enhance-reference-workspace" : "analysis-reference-workspace") : ""}">
-      ${state.step <= 1 ? "" : state.step === 2 ? partInspector() : ""}
+    <div class="workspace ${state.step === 0 ? "upload-reference-workspace" : state.step === 1 ? (prepView === "enhance" ? "enhance-reference-workspace" : "analysis-reference-workspace") : state.step === 2 ? "detect-reference-workspace" : ""}">
+      ${state.step <= 2 ? "" : ""}
       ${state.step === 0
         ? inputMain()
         : state.step === 1
@@ -2111,9 +2111,9 @@ function render() {
               : state.step === 4
                 ? validationMain()
                 : downloadMain()}
-      ${state.step === 0 ? uploadSetupPanel() : state.step === 1 ? (prepView === "enhance" ? enhancementInspector() : analysisInspector()) : ""}
+      ${state.step === 0 ? uploadSetupPanel() : state.step === 1 ? (prepView === "enhance" ? enhancementInspector() : analysisInspector()) : state.step === 2 ? detectInspector() : ""}
     </div>
-    ${state.step === 1 ? "" : footer()}
+    ${state.step <= 2 ? "" : footer()}
     </div></div>
     ${errorAssistant()}`;
 
