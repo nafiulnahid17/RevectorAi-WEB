@@ -13,6 +13,7 @@ export const account = {
   messages: [],
   offset: 0,
   paymentMethod: "BKASH",
+  supportFilter: "ALL",
   system: null,
   ai: null,
 };
