@@ -93,7 +93,7 @@ const { execFileSync } = require("node:child_process");
   await page.getByText("Uploading artwork...", { exact: true }).waitFor();
   await page.locator(".upload-reference-progress .upload-progress-track").waitFor();
   await page
-    .getByRole("heading", { name: "8-Part Review", exact: true })
+    .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
     .waitFor({ timeout: 120000 });
 
   const pid = await page.evaluate(() =>
@@ -140,8 +140,22 @@ const { execFileSync } = require("node:child_process");
   });
   await page.locator('button.step[data-step="2"]').click();
   await page
-    .getByRole("heading", { name: "8-Part Review", exact: true })
+    .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
     .waitFor();
+
+  assert.equal(
+    await page.locator('img[alt="AI production mockup"]').count(),
+    0,
+    "Detected Parts must not fabricate an AI mockup when no provider ran",
+  );
+  await page.getByText("No AI mockup available", { exact: true }).waitFor();
+  for (const fakeValue of ["75%", "92%", "2.1s", "4.3s", "6.8s", "Claude 3.5 Sonnet", "GPT-4o"]) {
+    assert.equal(
+      await page.getByText(fakeValue, { exact: true }).count(),
+      0,
+      `Detected Parts must not contain demo value ${fakeValue}`,
+    );
+  }
 
   assert.equal(
     await page.getByText("AI Production Mockup", { exact: true }).count(),
@@ -203,26 +217,26 @@ const { execFileSync } = require("node:child_process");
     extras = page.locator(".compact-parts button");
   }
 
-  let blankButtons = page.locator('[data-action="leave-blank"]');
-  while ((await blankButtons.count()) > 0) {
-    const before = await blankButtons.count();
-    await blankButtons.first().click();
+  let missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
+  while ((await missingSlots.count()) > 0) {
+    const before = await missingSlots.count();
+    await missingSlots.first().click();
+    const blankButton = page.locator('.detect-inspector [data-action="leave-blank"]');
+    await blankButton.waitFor();
+    await blankButton.click();
     await page.waitForFunction(
       (expected) =>
-        document.querySelectorAll('[data-action="leave-blank"]').length ===
-        expected,
+        document.querySelectorAll(".detect-slot-card.missing .detect-slot-select").length === expected,
       before - 1,
     );
-    blankButtons = page.locator('[data-action="leave-blank"]');
+    missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
   }
 
   await page.screenshot({
-    path: path.join(out, "01-eight-part-review.png"),
+    path: path.join(out, "01-detected-parts-review.png"),
     fullPage: true,
   });
-  const confirmButton = page
-    .getByRole("button", { name: /Confirm Parts/ })
-    .last();
+  const confirmButton = page.locator('[data-action="confirm-parts"]').last();
   assert.equal(await confirmButton.isEnabled(), true);
   await confirmButton.click();
 
