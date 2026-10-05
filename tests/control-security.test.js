@@ -33,6 +33,9 @@ function fixture() {
       email: "user@example.test",
       role: "USER",
       status: "ACTIVE",
+      avatar_path: U + "/avatar",
+      password_updated_at: "2026-10-05T00:00:00Z",
+      profile_completed_at: "2026-10-05T00:00:00Z",
     },
     [A]: {
       id: A,
@@ -157,6 +160,34 @@ test("user data queries use verified owner + RLS token, never a requested owner"
     403,
   );
 });
+test("incomplete invited users can finish profile but cannot use production APIs", async () => {
+  const f = fixture(),
+    cookie = await login(f);
+  f.profiles[U].profile_completed_at = null;
+  const blocked = await handle(
+    req(
+      "/api/revector/projects",
+      "POST",
+      { name: "blocked" },
+      { cookie },
+    ),
+    env,
+    f.transport,
+  );
+  assert.equal(blocked.status, 403);
+  assert.equal((await blocked.json()).error.code, "PROFILE_SETUP_REQUIRED");
+  assert.equal(
+    (
+      await handle(
+        req("/api/account/profile", "GET", undefined, { cookie }),
+        env,
+        f.transport,
+      )
+    ).status,
+    200,
+  );
+});
+
 test("engine uses stable verified account identity and rejects incomplete account configuration", async () => {
   const f = fixture(),
     cookie = await login(f);
