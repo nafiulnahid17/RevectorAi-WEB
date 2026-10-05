@@ -1,5 +1,9 @@
 import { account, currentPath } from "./account-model.js";
-import { accountMarkup, profileMenu } from "./account-views.js";
+import {
+  accountMarkup,
+  profileMenu,
+  profileSetupPrompt,
+} from "./account-views.js";
 import {
   types,
   stages,
@@ -2233,6 +2237,7 @@ function render() {
     </div>` : ""}
     ${state.step <= 3 ? "" : connectionStatus()}
     ${connectionLost()}
+    ${!state.connecting ? profileSetupPrompt() : ""}
     ${uploadStatusDialog()}
     <div class="production-shell ${state.step <= 3 ? "upload-shell" : ""} ${state.step === 1 ? (prepView === "enhance" ? "enhance-shell" : "analysis-shell") : state.step === 2 ? "detect-shell" : state.step === 3 ? "vector-shell" : ""}"><nav class="stepper" aria-label="Processing workflow">
       ${productionStepper(p, max, prepView)}
