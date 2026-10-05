@@ -92,7 +92,26 @@ export async function handle(request, env, transport = fetch) {
   let identity, reservation;
   try {
     const origin = engineOrigin(env);
-    identity = enabled(env) && !readiness ? await authenticate(request, env, transport) : await session(request, env);
+    identity =
+      enabled(env) && !readiness
+        ? await authenticate(request, env, transport)
+        : await session(request, env);
+    const informationalRoute =
+      request.method === "GET" &&
+      ["/api/revector/capabilities/ai", "/api/revector/error-catalog"].includes(
+        url.pathname,
+      );
+    if (
+      identity.db &&
+      identity.profile?.role === "USER" &&
+      !identity.profile.profile_completed_at &&
+      !informationalRoute
+    )
+      throw new ControlError(
+        "PROFILE_SETUP_REQUIRED",
+        403,
+        "Complete your ReVector profile before using the production workspace.",
+      );
     const headers = new Headers();
     headers.set("Authorization", "Bearer " + env.ENGINE_API_KEY);
     headers.set("X-Revector-User", identity.principal);
