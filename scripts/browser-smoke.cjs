@@ -57,14 +57,14 @@ const { execFileSync } = require("node:child_process");
     .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
     .waitFor();
 
-  const engineStatuses = page.locator(".engine-card");
+  const engineStatuses = page.locator(".upload-header-card.ai");
   assert.equal(await engineStatuses.count(), 2);
   assert.equal(
-    await page.getByText("Primary AI Engine", { exact: true }).count(),
+    await page.getByText("Primary AI", { exact: true }).count(),
     1,
   );
   assert.equal(
-    await page.getByText("Fallback AI Engine", { exact: true }).count(),
+    await page.getByText("Fallback AI", { exact: true }).count(),
     1,
   );
 
