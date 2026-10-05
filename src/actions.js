@@ -746,6 +746,21 @@ async function handle(action, target) {
       state.vectorZoom = 1;
       render();
       break;
+    case "mockup-background":
+      state.mockupBackground = target.dataset.mockupBackground || "navy";
+      render();
+      break;
+    case "mockup-lighting":
+      state.mockupLighting = target.dataset.mockupLighting || "neutral";
+      render();
+      break;
+    case "mockup-fullscreen": {
+      const frame = document.querySelector(".mockup-preview-frame");
+      if (!frame) return;
+      if (document.fullscreenElement) await document.exitFullscreen?.();
+      else await frame.requestFullscreen?.();
+      break;
+    }
     case "palette":
       if (!state.shape) return toast("Select a vector shape first.");
       {
