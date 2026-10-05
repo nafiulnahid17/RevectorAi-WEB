@@ -23,9 +23,10 @@ are size-bounded. Redirects to other servers are rejected.
 
 An independent signing secret protects HttpOnly, Secure, SameSite=Lax anonymous
 session cookies. Sessions expire after seven days of inactivity. Keep the cookie
-to access previous projects; clearing it loses access. This legacy mode is session isolation. Configuring Control Backend V1 enables
-invite-only Supabase login, private account data, credit reservations and separate
-operations sessions; see the setup guide below. Existing ownerless
+to access previous projects; clearing it loses access. Production access is now fail-closed and invite-only: ReVector processing routes require
+a configured Control Backend V1 and an authenticated ACTIVE account. Anonymous processing
+is no longer available. Supabase provides private account data, credit reservations and
+separate operations sessions; see the setup guide below. Existing ownerless
 engine projects require an explicit administrator migration.
 
 Secrets do not enter the static build. The browser receives no engine URL/key.
@@ -138,9 +139,8 @@ require server-side ADMIN authorization; SUPPORT is limited to ticket operations
 
 The Worker now includes Control Backend V1 using Supabase Auth, RLS-protected
 account data, an atomic credit ledger, manual top-up/model requests, support
-conversations, and engine-metadata usage accounting. With Supabase unconfigured,
-account screens report unavailable services and the existing anonymous tool remains
-available. Partial configuration fails closed. No production Supabase configuration
+conversations, and engine-metadata usage accounting. With Supabase unconfigured or incomplete, account screens report unavailable services
+and production processing stays locked. Partial configuration fails closed. No production Supabase configuration
 or OpenAI integration is included in this change.
 
 See [setup, security, billing and complete API contract](docs/control/README.md),
