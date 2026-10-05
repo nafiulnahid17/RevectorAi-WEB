@@ -104,6 +104,10 @@ export async function handle(request, env, transport = fetch) {
     if (
       identity.db &&
       identity.profile?.role === "USER" &&
+      Object.prototype.hasOwnProperty.call(
+        identity.profile || {},
+        "profile_completed_at",
+      ) &&
       !identity.profile.profile_completed_at &&
       !informationalRoute
     )
