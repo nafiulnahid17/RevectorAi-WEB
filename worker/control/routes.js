@@ -2,6 +2,7 @@ import { reconcileAccount } from "./billing.js";
 import {
   configured,
   enabled,
+  configuration,
   database,
   input,
   uuid,
@@ -26,6 +27,31 @@ function page(url) {
 function options(identity) {
   return { auth: true, token: identity.access };
 }
+const AVATAR_BUCKET = "revector-avatars";
+const AVATAR_LIMIT = 3 * 1024 * 1024;
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+function profileSetupComplete(profile) {
+  return profile?.role !== "USER" || Boolean(profile?.profile_completed_at);
+}
+function avatarPath(uid) {
+  return uid + "/avatar";
+}
+async function storageObject(env, transport, path, init = {}) {
+  const origin = configuration(env);
+  const headers = new Headers(init.headers || {});
+  headers.set("apikey", env.SUPABASE_SERVICE_ROLE_KEY);
+  headers.set("Authorization", "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY);
+  return transport(
+    new Request(
+      origin +
+        "/storage/v1/object/" +
+        AVATAR_BUCKET +
+        "/" +
+        path.split("/").map(encodeURIComponent).join("/"),
+      { ...init, headers, redirect: "manual" },
+    ),
+  );
+}
 export async function controlRoute(request, env, transport) {
   const url = new URL(request.url),
     path = url.pathname;
@@ -45,7 +71,11 @@ export async function controlRoute(request, env, transport) {
     try {
       const id = await authenticate(request, env, transport);
       return Response.json(
-        { configured: true, profile: id.profile },
+        {
+          configured: true,
+          profile: id.profile,
+          profile_setup_required: !profileSetupComplete(id.profile),
+        },
         { headers: id.cookie ? { "Set-Cookie": id.cookie } : {} },
       );
     } catch (e) {
@@ -70,6 +100,16 @@ export async function controlRoute(request, env, transport) {
       headers: identity.cookie ? { "Set-Cookie": identity.cookie } : {},
     });
   const route = path.slice("/api/account/".length);
+  const onboardingRoute =
+    route === "profile" ||
+    route === "avatar" ||
+    route === "profile/complete";
+  if (!profileSetupComplete(identity.profile) && !onboardingRoute)
+    throw new ControlError(
+      "PROFILE_SETUP_REQUIRED",
+      403,
+      "Complete your ReVector profile before using account services.",
+    );
   if (route === "profile" && request.method === "GET")
     return response({ profile: identity.profile });
   if (route === "profile" && request.method === "PATCH") {
@@ -88,6 +128,114 @@ export async function controlRoute(request, env, transport) {
             ...options(identity),
             method: "PATCH",
             body,
+            prefer: "return=representation",
+          },
+        )
+      )[0],
+    });
+  }
+  if (route === "avatar" && request.method === "GET") {
+    if (!identity.profile.avatar_path)
+      throw new ControlError("AVATAR_NOT_FOUND", 404, "Profile picture not found.");
+    const asset = await storageObject(
+      env,
+      transport,
+      identity.profile.avatar_path,
+      { method: "GET" },
+    );
+    if (!asset.ok)
+      throw new ControlError("AVATAR_NOT_FOUND", 404, "Profile picture not found.");
+    const headers = new Headers();
+    headers.set(
+      "Content-Type",
+      asset.headers.get("content-type") || "application/octet-stream",
+    );
+    headers.set("Cache-Control", "private, no-store");
+    if (identity.cookie) headers.set("Set-Cookie", identity.cookie);
+    return new Response(asset.body, { status: 200, headers });
+  }
+  if (route === "avatar" && request.method === "POST") {
+    const type = (request.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!AVATAR_TYPES.has(type))
+      throw new ControlError(
+        "INVALID_AVATAR",
+        400,
+        "Use a JPG, PNG, or WEBP profile picture.",
+      );
+    const declared = Number(request.headers.get("content-length") || 0);
+    if (declared > AVATAR_LIMIT)
+      throw new ControlError(
+        "AVATAR_TOO_LARGE",
+        413,
+        "Profile picture must be 3 MB or smaller.",
+      );
+    const bytes = await request.arrayBuffer();
+    if (!bytes.byteLength || bytes.byteLength > AVATAR_LIMIT)
+      throw new ControlError(
+        "AVATAR_TOO_LARGE",
+        413,
+        "Profile picture must be between 1 byte and 3 MB.",
+      );
+    const path = avatarPath(uid);
+    const stored = await storageObject(env, transport, path, {
+      method: "POST",
+      headers: {
+        "Content-Type": type,
+        "x-upsert": "true",
+        "Cache-Control": "3600",
+      },
+      body: bytes,
+    });
+    if (!stored.ok)
+      throw new ControlError(
+        "AVATAR_UPLOAD_FAILED",
+        502,
+        "Profile picture could not be saved.",
+      );
+    return response({
+      profile: (
+        await db.table(
+          "revector_profiles",
+          { id: "eq." + uid },
+          {
+            method: "PATCH",
+            body: { avatar_path: path },
+            prefer: "return=representation",
+          },
+        )
+      )[0],
+    });
+  }
+  if (route === "profile/complete" && request.method === "POST") {
+    const profile = (
+      await db.table("revector_profiles", {
+        id: "eq." + uid,
+        select: "*",
+        limit: "1",
+      })
+    )[0];
+    if (
+      !profile?.name?.trim() ||
+      !profile?.company?.trim() ||
+      !profile?.avatar_path ||
+      !profile?.password_updated_at
+    )
+      throw new ControlError(
+        "PROFILE_SETUP_INCOMPLETE",
+        409,
+        "Add your name, company, profile picture, and a new password first.",
+      );
+    return response({
+      profile: (
+        await db.table(
+          "revector_profiles",
+          { id: "eq." + uid },
+          {
+            method: "PATCH",
+            body: { profile_completed_at: new Date().toISOString() },
             prefer: "return=representation",
           },
         )
