@@ -12,6 +12,9 @@ export const account = {
   ticket: null,
   messages: [],
   offset: 0,
+  paymentMethod: "BKASH",
+  system: null,
+  ai: null,
 };
 export const userPages = [
   ["profile", "Profile"],
