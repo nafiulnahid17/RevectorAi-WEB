@@ -189,10 +189,15 @@ export async function loadAccountPage() {
     account.ai = aiResult.status === "fulfilled" ? aiResult.value : null;
 
     const pairs = await Promise.all(
-      (pages[page] || []).map(async (key) => [
-        key,
-        await accountRequest("/api/account/" + key + offset),
-      ]),
+      (pages[page] || []).map(async (key) => {
+        try {
+          return [key, await accountRequest("/api/account/" + key + offset)];
+        } catch (error) {
+          if (key === "payment-settings")
+            return [key, { settings: null, unavailable: true }];
+          throw error;
+        }
+      }),
     );
     account.data = Object.fromEntries(pairs);
     if (page === "add-credits") {
