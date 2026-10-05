@@ -330,6 +330,14 @@ async function boot() {
       );
     }
 
+    if (account.configured === true && !account.profile) {
+      if (state.initialBootstrap)
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))),
+        );
+      return;
+    }
+
     let savedProject;
     try {
       savedProject = localStorage.getItem("revector.project");
@@ -362,7 +370,7 @@ async function boot() {
     }
 
     if (state.initialBootstrap) await new Promise(resolve => setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))));
-    welcomeVoice();
+    if (account.profile) welcomeVoice();
   } catch (error) {
     const failed = state.connections.server !== "connected" ? "server" : "engine";
     state.connections[failed] = "failed";
