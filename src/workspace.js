@@ -370,7 +370,7 @@ async function boot() {
     }
 
     if (state.initialBootstrap) await new Promise(resolve => setTimeout(resolve, Math.max(0, 3000 - (Date.now() - started))));
-    if (account.profile) welcomeVoice();
+    if (account.profile || account.configured !== true) welcomeVoice();
   } catch (error) {
     const failed = state.connections.server !== "connected" ? "server" : "engine";
     state.connections[failed] = "failed";
