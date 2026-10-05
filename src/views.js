@@ -1695,6 +1695,44 @@ function startupCurrentLabel() {
   return "Preparing Workspace";
 }
 
+
+function productionStepper(p, max, prepView) {
+  const items = [
+    ["Upload", 0, "Jersey image or design file", null],
+    ["Analyze", 1, "Detect structure & parts", "analyze"],
+    ["Enhance", 1, "Clean, sharpen & rebuild", "enhance"],
+    ["Mockup", 1, "Preview production reference", "mockup"],
+    ["Detect Parts", 2, "Identify garment pieces", null],
+    ["Vectorize", 3, "Convert to production vectors", null],
+    ["Validate", 4, "Check vector integrity", null],
+    ["Download", 5, "Export factory-ready files", null],
+  ];
+  const event = state.job?.process_event?.event;
+  const phases = {
+    Analyze: "ANALYZING_ARTWORK",
+    Enhance: "ENHANCING_ARTWORK",
+    Mockup: "CREATING_PATTERN_MOCKUP",
+  };
+
+  return items.map(([name, index, description, prep], n) => {
+    const done =
+      name === "Analyze"
+        ? Boolean(p?.analysis && Object.keys(p.analysis).length) || index < state.step
+        : name === "Enhance"
+          ? Boolean(p?.ai_assets?.enhancement && p?.ai_metadata?.enhancement?.provider)
+          : name === "Mockup"
+            ? Boolean(p?.ai_assets?.mockup && p?.ai_metadata?.mockup?.provider)
+            : index < state.step;
+    const active =
+      index === state.step &&
+      (prep
+        ? event === phases[name] || (!state.busy && prepView === prep)
+        : true);
+    const extra = prep ? ` data-prep-view="${prep}"` : "";
+    return `<button class="step ${active ? "active" : done ? "complete" : ""}" data-action="navigate" data-step="${index}"${extra} ${index > max ? "disabled" : ""}><span class="step-number">${done ? icon("check") : n + 1}</span><span><strong>${name}</strong><small>${escape(description)}</small></span></button>`;
+  }).join("");
+}
+
 let renderedAccountMarker = null;
 function render() {
   const accountView = accountMarkup();
@@ -1734,23 +1772,7 @@ function render() {
     ${connectionLost()}
     ${uploadStatusDialog()}
     <div class="production-shell ${state.step <= 1 ? "upload-shell" : ""} ${state.step === 1 ? (prepView === "enhance" ? "enhance-shell" : "analysis-shell") : ""}"><nav class="stepper" aria-label="Processing workflow">
-      ${[
-        ["Upload",0,"Jersey image or design file"],
-        ["Analyze",1,"Detect structure & parts"],
-        ["Enhance",1,"Clean, sharpen & rebuild"],
-        ["Mockup",1,"Preview production reference"],
-        ["Detect Parts",2,"Identify garment pieces"],
-        ["Vectorize",3,"Convert to production vectors"],
-        ["Validate",4,"Check vector integrity"],
-        ["Download",5,"Export factory-ready files"],
-      ].map(([label,index,description],n)=>{
-        const metadataKey = {Analyze:"analysis",Enhance:"enhancement",Mockup:"mockup"}[label];
-        const done = metadataKey && label !== "Analyze" ? Boolean(p?.ai_metadata?.[metadataKey]?.provider) : index < state.step || Boolean(p?.ai_metadata?.[metadataKey]?.provider);
-        const event = state.job?.process_event?.event;
-        const phases = {Analyze:"ANALYZING_ARTWORK",Enhance:"ENHANCING_ARTWORK",Mockup:"CREATING_PATTERN_MOCKUP"};
-        const active = index === state.step && (!metadataKey || event === phases[label] || (label === "Analyze" && ![phases.Enhance,phases.Mockup].includes(event)));
-        return `<button class="step ${active?"active":done?"complete":""}" data-action="navigate" data-step="${index}" ${index>max?"disabled":""}><span class="step-number">${done?icon("check"):n+1}</span><span><strong>${label}</strong><small>${escape(description)}</small></span></button>`;
-      }).join("")}
+      ${productionStepper(p, max, prepView)}
     </nav><div class="production-content">
     ${state.error && !state.assistantOpen
       ? `<div class="status-error" role="alert"><strong>${escape(state.error.error_code || state.error.code)}</strong><span>${escape(state.error.message)}</span>${btn("Open Assistant", "assistant-toggle", "quiet")}${btn("Dismiss", "dismiss-error", "quiet")}</div>`
