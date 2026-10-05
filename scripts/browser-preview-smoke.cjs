@@ -146,7 +146,10 @@ const path = require("node:path");
       .getByRole("button", { name: "Retry tool connection", exact: true })
       .click();
     await page.locator('[data-connection="tool"].connected').waitFor();
-    await page.getByText("Ready", { exact: true }).waitFor();
+    await page.locator(".connection-segment.connected").first().waitFor();
+    await page.waitForFunction(
+      () => document.querySelectorAll(".connection-segment.connected").length === 3,
+    );
     assert.equal(
       await page.locator(".connection-segment.connected").count(),
       3,
@@ -178,7 +181,10 @@ const path = require("node:path");
       });
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByText("Ready", { exact: true }).waitFor();
+    await page.locator(".connection-segment.connected").first().waitFor();
+    await page.waitForFunction(
+      () => document.querySelectorAll(".connection-segment.connected").length === 3,
+    );
     // A server can send headers and then stall midway through its JSON body.
     // The five-second limit must include decoding, not just receiving headers.
     const stalled = http.createServer((req, res) => {
