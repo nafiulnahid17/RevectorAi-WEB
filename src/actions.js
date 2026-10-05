@@ -155,6 +155,7 @@ function resetWorkspace() {
   state.project = null;
   state.selected = null;
   state.step = 0;
+  state.preparationView = "analyze";
   state.error = null;
   state.assistantAdvice = null;
   state.assistantOpen = false;
@@ -793,6 +794,7 @@ async function handle(action, target) {
       break;
     case "navigate":
       state.step = Number(target.dataset.step);
+      if (target.dataset.prepView) state.preparationView = target.dataset.prepView;
       state.draw = null;
       state.shape = null;
       render();
