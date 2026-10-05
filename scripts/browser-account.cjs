@@ -104,6 +104,31 @@ const { chromium } = require("playwright"),
       };
     else if (p === "/api/account/transactions") data = { items: ledger };
     else if (p === "/api/account/usage") data = { items: [] };
+    else if (p === "/api/account/payment-settings")
+      data = {
+        settings: {
+          usd_to_bdt_rate: 130,
+          bkash: {
+            enabled: true,
+            number: "QA-BKASH-01700000000",
+            instructions: [
+              "QA: send the exact amount.",
+              "QA: retain the transaction ID.",
+              "QA: submit the transaction ID for review.",
+            ],
+          },
+          nagad: {
+            enabled: true,
+            number: "QA-NAGAD-01800000000",
+            instructions: [
+              "QA: send the exact amount.",
+              "QA: retain the transaction ID.",
+              "QA: submit the transaction ID for review.",
+            ],
+          },
+          updated_at: "2026-10-05T00:00:00Z",
+        },
+      };
     else if (p === "/api/account/models" || p === "/api/admin/models")
       data = {
         items: [
@@ -212,10 +237,9 @@ const { chromium } = require("playwright"),
   });
   try {
     await page.goto("https://qa.revector.test/dashboard");
-    await page
-      .getByRole("heading", { name: "My Dashboard", exact: true })
-      .waitFor();
-    await page.getByText("10", { exact: true }).waitFor();
+    await page.locator(".ud-welcome h1").getByText("QA User", { exact: true }).waitFor();
+    await page.getByText("$10.00", { exact: true }).waitFor();
+    assert.equal(await page.getByText("124.50", { exact: true }).count(), 0);
     await page.getByRole("button", { name: "Open profile menu" }).click();
     assert.equal(
       await page
@@ -226,7 +250,7 @@ const { chromium } = require("playwright"),
     );
     assert.equal(await page.locator(".profile-dropdown a").count(), 6);
     await page
-      .locator(".account-nav")
+      .locator(".ud-sidebar")
       .getByRole("link", { name: "Profile", exact: true })
       .click();
     await page.locator("[name=name]").fill("Updated QA User");
@@ -234,14 +258,20 @@ const { chromium } = require("playwright"),
     await page.getByText("Saved successfully.", { exact: true }).waitFor();
     assert.equal(profile.name, "Updated QA User");
     await page
-      .locator(".account-nav")
+      .locator(".ud-sidebar")
       .getByRole("link", { name: "Add Credits", exact: true })
       .click();
-    await page.locator("[name=requested_credits]").fill("8");
-    await page.locator("[name=payment_method]").fill("Manual review");
+    await page.getByText("QA-BKASH-01700000000", { exact: true }).waitFor();
+    await page.locator("#topup-usd-preview").fill("8");
+    await page.locator("#topup-bdt-preview").waitFor();
+    assert.equal(await page.locator("#topup-bdt-preview").inputValue(), "1,040");
     await page.locator("[name=payment_note]").fill("QA only");
-    await page.getByRole("button", { name: "Submit Credit Request" }).click();
+    await page.getByRole("button", { name: "Submit Top-up Request" }).click();
     await page.getByText("PENDING", { exact: true }).waitFor();
+    const topupPost = requests.findLast(
+      ([method, path]) => method === "POST" && path === "/api/account/requests",
+    );
+    assert.ok(topupPost, "Top-up request must be posted");
     assert.equal(balance, 12);
     // Test-only server fixture for an operations reply from the separate application.
     messages.push({author_role:"ADMIN",message:"Review your crop boundary and revalidate.",created_at:new Date().toISOString()});
@@ -256,9 +286,7 @@ const { chromium } = require("playwright"),
     await page.goto("https://qa.revector.test/dashboard");
     for (const width of [1920, 1600, 1440, 1366, 1280, 390]) {
       await page.setViewportSize({ width, height: 1000 });
-      await page
-        .getByRole("heading", { name: "My Dashboard", exact: true })
-        .waitFor();
+      await page.locator(".ud-welcome h1").waitFor();
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth,
