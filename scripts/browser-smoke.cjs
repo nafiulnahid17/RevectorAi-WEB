@@ -263,23 +263,30 @@ const { execFileSync } = require("node:child_process");
   );
 
   await page.locator('[data-action="navigate"][data-step="3"]').click();
-  await page
-    .getByRole("heading", { name: "Vector Parts", exact: true })
-    .waitFor();
-  await page.locator(".vector-part").first().click();
+  await page.locator(".vector-workbench").waitFor();
+  for (const fakeValue of ["68%", "2.8s", "Claude 3.5 Sonnet", "GPT-4o"]) {
+    assert.equal(
+      await page.getByText(fakeValue, { exact: true }).count(),
+      0,
+      `Vectorize must not contain demo value ${fakeValue}`,
+    );
+  }
+  const vectorPart = page.locator(".vector-layout-part.ready").first();
+  await vectorPart.click();
   await page.waitForFunction(() => document.querySelector("#vector-art svg"));
   const shape = page.locator("#vector-art .editable-shape").first();
   assert.ok((await shape.count()) > 0, "A real SVG shape should be selectable");
   await shape.click({ force: true });
+  await page.locator("#shape-label").waitFor();
   const selectedShapeId = await page.locator("#shape-label").textContent();
   assert.ok(selectedShapeId && selectedShapeId !== "None");
-  await page.locator("#shape-color").fill("#ee3344");
+  const colorInput = page.locator("#shape-color");
+  await colorInput.waitFor();
+  await colorInput.fill("#ee3344");
   await page
     .getByRole("button", { name: "Apply Color & Revalidate", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Apply Color & Revalidate", exact: true })
-    .waitFor({ timeout: 120000 });
+  await page.locator(".vector-workbench").waitFor({ timeout: 120000 });
 
   const edited = await (
     await page.request.get(base + "/api/revector/projects/" + pid)
