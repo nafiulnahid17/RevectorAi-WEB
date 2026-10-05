@@ -249,6 +249,8 @@ const { chromium } = require("playwright"),
       0,
     );
     assert.equal(await page.locator(".profile-dropdown a").count(), 6);
+    await page.getByRole("button", { name: "Open profile menu" }).click();
+    await page.locator(".profile-dropdown").waitFor({ state: "detached" });
     await page
       .locator(".ud-sidebar")
       .getByRole("link", { name: "Profile", exact: true })
