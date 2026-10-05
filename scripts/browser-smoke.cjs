@@ -92,7 +92,7 @@ const { execFileSync } = require("node:child_process");
     .setInputFiles(path.resolve("public/assets/sample-layout.png"));
   await page.getByText("Uploading artwork...", { exact: true }).waitFor();
   await page
-    .getByText("Preparing your file for processing.", { exact: true })
+    .getByText("Preparing workspace and validating the source file.", { exact: true })
     .waitFor();
   await page
     .getByRole("heading", { name: "8-Part Review", exact: true })
