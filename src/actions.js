@@ -154,6 +154,7 @@ async function deleteArtwork() {
 function resetWorkspace() {
   state.project = null;
   state.selected = null;
+  state.selectedSlot = null;
   state.step = 0;
   state.preparationView = "analyze";
   state.error = null;
@@ -263,6 +264,7 @@ async function confirmParts() {
 }
 
 async function createMissing(slot) {
+  state.selectedSlot = slot;
   await perform(async () => {
     state.step = 2;
     state.operation = `Reconstructing ${label(slot)}`;
@@ -275,6 +277,7 @@ async function createMissing(slot) {
 }
 
 async function leaveBlank(slot) {
+  state.selectedSlot = slot;
   await perform(async () => {
     state.operation = `Leaving ${label(slot)} Blank`;
     state.project = await post("/slots/update", {
@@ -287,6 +290,7 @@ async function leaveBlank(slot) {
 }
 
 function manualSlot(slot) {
+  state.selectedSlot = slot;
   const def = expectedSlots.find((item) => item.key === slot);
   if (!def) return;
   state.draw = "add";
@@ -684,9 +688,22 @@ async function handle(action, target) {
       break;
     case "select-part":
       state.selected = target.dataset.id;
+      state.selectedSlot =
+        expectedSlots.find(
+          (slot) => state.project?.slots?.[slot.key]?.part_id === state.selected,
+        )?.key || state.selectedSlot;
       state.shape = null;
       render();
       break;
+    case "select-slot": {
+      const slotKey = target.dataset.slot;
+      const slot = state.project?.slots?.[slotKey];
+      state.selectedSlot = slotKey || null;
+      state.selected = slot?.part_id || null;
+      state.shape = null;
+      render();
+      break;
+    }
     case "save-part":
       await savePart();
       break;
