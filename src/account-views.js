@@ -3,6 +3,7 @@ import {
   userPages,
   currentPath,
   accountPage,
+  profileSetupRequired,
 } from "./account-model.js";
 import { escape } from "./model.js";
 const e = escape;
@@ -35,10 +36,40 @@ const badge = (status) =>
   `<span class="account-badge">${e(status || "—")}</span>`;
 export function profileMenu() {
   const wallet = account.data.wallet?.items?.[0];
-  return `<div class="profile-control">${button(account.profile ? e((account.profile.name || account.profile.email).slice(0, 2).toUpperCase()) : "◎", "menu", 'class="avatar-button" aria-label="Open profile menu" aria-expanded="' + account.menu + '"')}${account.menu ? `<div class="profile-dropdown"><strong>${e(account.profile?.name || "Your account")}</strong><small>${e(account.profile?.email || "ReVector account services")}</small>${account.profile ? `<small>${e(account.profile.status)}</small>` : ""}${wallet ? `<small>${money(wallet.current_credit_balance)} credits</small>` : ""}${userPages.map(([route, label]) => `<a href="/dashboard/${route}" data-account="nav">${label}</a>`).join("")}${account.profile ? button("Sign Out", "logout") : button("Sign In", "nav", 'data-url="/login"')}</div>` : ""}</div>`;
+  const avatar = account.profile?.avatar_path
+    ? `<img src="/api/account/avatar?v=${account.avatarVersion}" alt="">`
+    : account.profile
+      ? e((account.profile.name || account.profile.email).slice(0, 2).toUpperCase())
+      : "◎";
+  const links = profileSetupRequired()
+    ? '<a href="/dashboard/profile" data-account="nav">Complete Profile</a>'
+    : userPages
+        .map(
+          ([route, label]) =>
+            `<a href="/dashboard/${route}" data-account="nav">${label}</a>`,
+        )
+        .join("");
+  return `<div class="profile-control">${button(avatar, "menu", 'class="avatar-button" aria-label="Open profile menu" aria-expanded="' + account.menu + '"')}${account.menu ? `<div class="profile-dropdown"><strong>${e(account.profile?.name || "Your account")}</strong><small>${e(account.profile?.email || "ReVector account services")}</small>${account.profile ? `<small>${profileSetupRequired() ? "SETUP REQUIRED" : e(account.profile.status)}</small>` : ""}${wallet ? `<small>${money(wallet.current_credit_balance)} credits</small>` : ""}${links}${account.profile ? button("Sign Out", "logout") : button("Sign In", "nav", 'data-url="/login"')}</div>` : ""}</div>`;
 }
 function login() {
-  return `<div class="account-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Invite-only account</div><h1>Welcome to ReVector</h1><p class="muted">Sign in with your invited account to access your production workspace.</p>${account.configured === false ? empty("Account services are not configured. Contact the owner to enable Supabase Auth.") : form("login", field("Email", "email", "email", "", 'required autocomplete="username"') + field("Password", "password", "password", "", 'required autocomplete="current-password"'), "Sign In")}${account.error ? `<p role="alert" class="account-error">${e(account.error)}</p>` : ""}<a href="/" data-account="nav">Return to production workspace</a></section></div>`;
+  return `<div class="account-login"><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI</strong></a><section class="login-card"><div class="section-kicker">Invite-only access</div><h1>Sign in to ReVector</h1><p class="muted">First-time users must enter through the invitation link from their administrator. After setup, sign in here with your email address and updated password. User sessions expire after 24 hours.</p>${account.configured === false ? empty("Account services are not configured. Contact the owner to enable Supabase Auth.") : form("login", field("Email", "email", "email", "", 'required autocomplete="username"') + field("Password", "password", "password", "", 'required autocomplete="current-password"'), "Sign In")}${account.error ? `<p role="alert" class="account-error">${e(account.error)}</p>` : ""}</section></div>`;
+}
+
+export function profileSetupPrompt() {
+  if (!profileSetupRequired()) return "";
+  return `<div class="profile-setup-gate" role="dialog" aria-modal="true" aria-labelledby="profile-setup-title">
+    <div class="profile-setup-gate-card">
+      <span class="profile-setup-orb" aria-hidden="true"></span>
+      <div class="section-kicker">INVITED USER SETUP</div>
+      <h2 id="profile-setup-title">Complete your profile to use ReVector</h2>
+      <p>Your invitation is verified, but production access stays locked until you update your password, upload a profile picture and complete your account details.</p>
+      <div class="profile-setup-checks">
+        <span>Secure password</span><span>Profile picture</span><span>Name & company</span>
+      </div>
+      <a class="button primary" href="/dashboard/profile" data-account="nav">Set Up Profile</a>
+      <small>Production APIs remain locked until setup is complete.</small>
+    </div>
+  </div>`;
 }
 function usage(items) {
   return table(
@@ -147,17 +178,50 @@ function userContent(page) {
       panel("Recent Usage", usage(d.usage?.items || []))
     );
   }
-  if (page === "profile")
+  if (page === "profile") {
+    if (profileSetupRequired())
+      return `<section class="onboarding-card">
+        <div class="onboarding-head">
+          <div><div class="section-kicker">FIRST-TIME SETUP</div><h2>Finish your ReVector profile</h2><p>This setup is mandatory before the production workspace unlocks.</p></div>
+          <span class="setup-lock">Production Locked</span>
+        </div>
+        <form class="account-form onboarding-form" data-account-form="onboarding">
+          <fieldset ${account.busy ? "disabled" : ""}>
+            <label class="avatar-upload-field">
+              <span>Profile picture</span>
+              <div class="avatar-upload-box">
+                <span class="avatar-upload-preview">${p.avatar_path ? `<img src="/api/account/avatar?v=${account.avatarVersion}" alt="Current profile picture">` : "＋"}</span>
+                <span><strong>Upload JPG, PNG or WEBP</strong><small>Maximum 3 MB</small></span>
+              </div>
+              <input name="avatar" type="file" accept="image/jpeg,image/png,image/webp" required>
+            </label>
+            ${field("Full name", "name", "text", p.name, 'required maxlength="120" autocomplete="name"')}
+            ${field("Email", "email", "email", p.email, "disabled")}
+            ${field("Company / organization", "company", "text", p.company, 'required maxlength="180" autocomplete="organization"')}
+            <div class="onboarding-password-grid">
+              ${field("New password", "password", "password", "", 'required minlength="12" autocomplete="new-password"')}
+              ${field("Confirm password", "confirm_password", "password", "", 'required minlength="12" autocomplete="new-password"')}
+            </div>
+            <p class="muted setup-note">After setup, you will sign in with this email and new password. Your ReVector session lasts 24 hours.</p>
+            ${submit("Complete Setup")}
+          </fieldset>
+        </form>
+      </section>`;
     return (
       panel(
         "Profile",
-        `<p class="muted">Status: ${e(p.status)}${p.created_at ? ` · Created ${date(p.created_at)}` : ""}</p>` +
+        `<div class="profile-summary"><div class="profile-photo">${p.avatar_path ? `<img src="/api/account/avatar?v=${account.avatarVersion}" alt="Profile picture">` : e((p.name || p.email).slice(0, 2).toUpperCase())}</div><div><strong>${e(p.name || p.email)}</strong><p class="muted">Status: ${e(p.status)}${p.created_at ? ` · Created ${date(p.created_at)}` : ""}</p></div></div>` +
           form(
             "profile",
-            field("Name", "name", "text", p.name, 'maxlength="120"') +
+            field("Name", "name", "text", p.name, 'required maxlength="120"') +
               field("Email", "email", "email", p.email, "disabled") +
-              field("Company", "company", "text", p.company, 'maxlength="180"'),
+              field("Company", "company", "text", p.company, 'required maxlength="180"'),
             "Save Profile",
+          ) +
+          form(
+            "avatar",
+            '<label class="account-field"><span>Update profile picture</span><input name="avatar" type="file" accept="image/jpeg,image/png,image/webp" required></label>',
+            "Upload Picture",
           ),
       ) +
       panel(
@@ -175,6 +239,7 @@ function userContent(page) {
         ),
       )
     );
+  }
   if (page === "balance")
     return (
       panel(
@@ -344,6 +409,9 @@ export function accountMarkup() {
   if (account.configured === false)
     return `<div class="account-layout"><header><a href="/" data-account="nav">ReVector</a></header><main>${panel("Account services unavailable", '<p>Supabase Auth and Control Backend V1 need server-side configuration. Production workflow remains available.</p><a href="/" data-account="nav">Return to production</a>')}</main></div>`;
   const profile = account.profile,
-    pages = [["dashboard", "My Dashboard"], ...userPages];
-  return `<div class="account-layout"><header><a class="console-brand" href="/" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI<small>My Account</small></strong></a><div class="right">${badge(profile?.role || "SIGNED OUT")}${profileMenu()}</div></header><div class="account-shell"><nav class="account-nav" aria-label="Account navigation"><a href="/" data-account="nav">← Production Workspace</a>${pages.map(([route, label]) => `<a href="/dashboard/${route === "dashboard" ? "" : route}" class="${page === route ? "active" : ""}" data-account="nav">${label}</a>`).join("")}</nav><main class="account-main"><div class="account-heading"><div><div class="section-kicker">Private Account</div><h1>${e(pages.find(([r]) => r === page)?.[1] || page)}</h1></div>${button("Refresh", "refresh")}</div>${account.error ? `<p class="account-error" role="alert">${e(account.error)}</p>` : ""}${account.notice ? `<p class="account-notice" role="status">${e(account.notice)}</p>` : ""}${account.busy ? '<p role="status">Loading account data…</p>' : ""}${userContent(page)}${["usage", "balance", "support", "models"].includes(page) ? `<div class="account-pager">${button("Previous", "previous", account.offset === 0 ? "disabled" : "")}<span>Page ${account.offset / 50 + 1}</span>${button("Next", "next", (account.data[page === "balance" ? "transactions" : page === "models" ? "requests" : page]?.items || []).length < 50 ? "disabled" : "")}</div>` : ""}</main></div></div>`;
+    setupRequired = profileSetupRequired(),
+    pages = setupRequired
+      ? [["profile", "Complete Profile"]]
+      : [["dashboard", "My Dashboard"], ...userPages];
+  return `<div class="account-layout"><header><a class="console-brand" href="${setupRequired ? "/dashboard/profile" : "/"}" data-account="nav"><span class="gold-mark">R</span><strong>ReVector AI<small>${setupRequired ? "Account Setup" : "My Account"}</small></strong></a><div class="right">${badge(setupRequired ? "SETUP REQUIRED" : profile?.role || "SIGNED OUT")}${profileMenu()}</div></header><div class="account-shell"><nav class="account-nav" aria-label="Account navigation">${setupRequired ? "" : '<a href="/" data-account="nav">← Production Workspace</a>'}${pages.map(([route, label]) => `<a href="/dashboard/${route === "dashboard" ? "" : route}" class="${page === route ? "active" : ""}" data-account="nav">${label}</a>`).join("")}</nav><main class="account-main"><div class="account-heading"><div><div class="section-kicker">${setupRequired ? "Secure Onboarding" : "Private Account"}</div><h1>${e(pages.find(([r]) => r === page)?.[1] || page)}</h1></div>${setupRequired ? "" : button("Refresh", "refresh")}</div>${account.error ? `<p class="account-error" role="alert">${e(account.error)}</p>` : ""}${account.notice ? `<p class="account-notice" role="status">${e(account.notice)}</p>` : ""}${account.busy ? '<p role="status">Loading account data…</p>' : ""}${userContent(page)}${!setupRequired && ["usage", "balance", "support", "models"].includes(page) ? `<div class="account-pager">${button("Previous", "previous", account.offset === 0 ? "disabled" : "")}<span>Page ${account.offset / 50 + 1}</span>${button("Next", "next", (account.data[page === "balance" ? "transactions" : page === "models" ? "requests" : page]?.items || []).length < 50 ? "disabled" : "")}</div>` : ""}</main></div></div>`;
 }
