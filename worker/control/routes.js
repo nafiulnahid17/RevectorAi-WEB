@@ -82,7 +82,7 @@ export async function controlRoute(request, env, transport) {
         { headers: id.cookie ? { "Set-Cookie": id.cookie } : {} },
       );
     } catch (e) {
-      if (e.status === 401)
+      if (e.status === 401 || e.code === "USER_REQUIRED")
         return Response.json({
           configured: true,
           profile: null,
