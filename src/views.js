@@ -1172,13 +1172,14 @@ function detectProcessingPanel() {
     : reviewState
       ? "Part detection ready for review"
       : "Part detection status";
+  const processingTitle = aiAvailable ? "AI Processing Parts" : "Part Processing";
 
   return `<section class="detect-processing-card">
     <div class="detect-processing-head">
       <div class="detect-processing-ring ${reviewState ? "complete" : activeDetection ? "running" : ""}">
         <span>${reviewState ? icon("check") : activeDetection ? "LIVE" : "—"}</span>
       </div>
-      <div><strong>AI Processing Parts</strong><h3>${escape(title)}</h3><p>${activeDetection ? "The engine is identifying and refining real garment components." : reviewState ? "The engine has produced the current eight-slot review state." : "Waiting for engine detection state."}</p></div>
+      <div><strong>${escape(processingTitle)}</strong><h3>${escape(title)}</h3><p>${activeDetection ? "The engine is identifying and refining real garment components." : reviewState ? "The engine has produced the current eight-slot review state." : "Waiting for engine detection state."}</p></div>
     </div>
     <div class="detect-process-list">
       ${detectProcessRow("Input image loaded", "UPLOAD_RECEIVED", Boolean(p?.source_file))}
@@ -1333,10 +1334,16 @@ function detectPartEditor(pp, matchingSlot) {
       <div class="detect-selected-thumb">${pp?.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
       <div><strong>${escape(pp.name)}</strong><small>${escape(matchingSlot?.label || label(pp.type))}</small>${pp.ai_confidence != null ? `<em>${Math.round(pp.ai_confidence * 100)}% AI confidence</em>` : ""}</div>
     </div>
-    <input type="hidden" name="part-name" value="${escape(pp.name)}">
-    <input type="hidden" name="part-type" value="${escape(pp.type)}">
-    <input type="hidden" name="part-width" value="${escape(pp.physical_width_mm || "")}">
-    <input type="hidden" name="part-height" value="${escape(pp.physical_height_mm || "")}">
+    ${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
+    <label>Category
+      <select name="part-type" ${state.busy || pp.locked ? "disabled" : ""}>
+        ${types.map((type) => `<option value="${type}" ${pp.type === type ? "selected" : ""}>${escape(label(type))}</option>`).join("")}
+      </select>
+    </label>
+    <div class="two-fields">
+      ${field("Width (mm)", "part-width", pp.physical_width_mm || "", "number", 'min="0.1" max="10000" step="0.1"')}
+      ${field("Height (mm)", "part-height", pp.physical_height_mm || "", "number", 'min="0.1" max="10000" step="0.1"')}
+    </div>
     <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
     <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
     ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
@@ -1344,7 +1351,6 @@ function detectPartEditor(pp, matchingSlot) {
     ${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
   </form>`;
 }
-
 function detectInspector() {
   const p = state.project;
   const meta = sourceMeta();
@@ -1438,7 +1444,7 @@ function detectInspector() {
                 <div><strong>${escape(selectedDef.label)}</strong><small>${escape(slotLabel(selectedState.status))}</small></div>
                 ${btn(icon("spark") + " Reconstruct with AI", "create-missing", "detect-inspector-primary", !canAi, `data-slot="${selectedDef.key}" ${!canAi ? 'title="No AI provider is configured in the engine."' : ""}`)}
                 ${btn("Manual Select", "manual-slot", "quiet full-width", false, `data-slot="${selectedDef.key}"`)}
-                ${btn("Keep Blank (Skip)", "leave-blank", "quiet full-width", false, `data-slot="${selectedDef.key}"`)}
+                ${selectedState.status === "blank" ? `<span class="detect-empty-copy">This slot is intentionally blank for this review.</span>` : btn("Keep Blank (Skip)", "leave-blank", "quiet full-width", false, `data-slot="${selectedDef.key}"`)}
               </div>`
             : `<p class="detect-empty-copy">Select a production slot or engine component to review it.</p>`
       }
