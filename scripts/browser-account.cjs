@@ -33,6 +33,7 @@ const { chromium } = require("playwright"),
       status: "ACTIVE",
     };
   let adminSession = false,
+    userSession = true,
     ledger = [],
     balance = 12,
     tickets = [
@@ -91,7 +92,12 @@ const { chromium } = require("playwright"),
         contentType: "text/html",
         body: html,
       });
-    if (p === "/api/account/bootstrap") data = { configured: true, profile };
+    if (p === "/api/account/bootstrap")
+      data = { configured: true, profile: userSession ? profile : null };
+    else if (p === "/api/auth/login") {
+      userSession = true;
+      data = { profile };
+    }
     else if (p === "/api/account/wallet")
       data = {
         items: [{ current_credit_balance: balance, reserved_credits: 2 }],
@@ -283,6 +289,34 @@ const { chromium } = require("playwright"),
       await page.getByRole("option", { name: /QA catalog model/ }).count(),
       1,
     );
+    userSession = false;
+    await page.goto("https://qa.revector.test/");
+    await page.locator(".bootstrap-overlay").waitFor({ state: "visible" });
+    assert.equal(
+      await page.locator("#user-login-gate").count(),
+      0,
+      "Login popup must not appear over the loading screen",
+    );
+    await page.locator(".bootstrap-overlay").waitFor({ state: "hidden", timeout: 15000 });
+    await page.locator("#user-login-gate").waitFor({ state: "visible" });
+    assert.equal(
+      new URL(page.url()).pathname,
+      "/",
+      "Signed-out workspace should remain on root and use a popup, not redirect to /login",
+    );
+    await page.locator('#user-login-gate [name="email"]').fill("user@example.test");
+    await page.locator('#user-login-gate [name="password"]').fill("qa-password-1234");
+    await page
+      .locator('#user-login-gate button[type="submit"]')
+      .click();
+    await page.locator(".bootstrap-overlay").waitFor({ state: "visible" });
+    await page.locator(".bootstrap-overlay").waitFor({ state: "hidden", timeout: 15000 });
+    await page.locator("#user-login-gate").waitFor({ state: "detached" });
+    await page
+      .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
+      .waitFor();
+    assert.equal(userSession, true, "Successful popup sign-in must create the test session");
+
     assert.deepEqual(errors, []);
     assert.ok(!requests.some(([m, p]) => m === "POST" && p.includes("signup")));
     console.log(
