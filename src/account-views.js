@@ -56,7 +56,7 @@ function login() {
 }
 
 export function userLoginGate() {
-  if (currentPath() !== "/" || account.profile || account.configured === null)
+  if (currentPath() !== "/" || account.profile || account.configured !== true)
     return "";
   return `<div class="user-login-gate" id="user-login-gate" role="dialog" aria-modal="true" aria-labelledby="user-login-title">
     <div class="user-login-gate-card">
