@@ -172,14 +172,22 @@ export async function loadAccountPage() {
       return;
     }
     const pages = {
-      dashboard: ["wallet", "usage", "models", "preferences"],
-      balance: ["wallet", "transactions"],
-      "add-credits": ["requests"],
+      dashboard: ["wallet", "usage", "models", "preferences", "payment-settings"],
+      balance: ["wallet", "transactions", "payment-settings"],
+      "add-credits": ["requests", "payment-settings"],
       usage: ["usage"],
       models: ["models", "preferences", "requests"],
       support: ["requests"],
       profile: [],
     };
+    const [systemResult, aiResult] = await Promise.allSettled([
+      accountRequest("/health/ready"),
+      accountRequest("/api/revector/capabilities/ai"),
+    ]);
+    account.system =
+      systemResult.status === "fulfilled" ? systemResult.value : null;
+    account.ai = aiResult.status === "fulfilled" ? aiResult.value : null;
+
     const pairs = await Promise.all(
       (pages[page] || []).map(async (key) => [
         key,
@@ -187,6 +195,17 @@ export async function loadAccountPage() {
       ]),
     );
     account.data = Object.fromEntries(pairs);
+    if (page === "add-credits") {
+      const settings = account.data["payment-settings"]?.settings;
+      const preferred = String(account.paymentMethod || "BKASH").toLowerCase();
+      if (!settings?.[preferred]?.enabled) {
+        account.paymentMethod = settings?.bkash?.enabled
+          ? "BKASH"
+          : settings?.nagad?.enabled
+            ? "NAGAD"
+            : "BKASH";
+      }
+    }
     if (pairs.some(([, data]) => data.accounting_warning))
       account.notice =
         "Some completed usage is awaiting reconciliation. Current records are shown; refresh after the engine reconnects.";
@@ -204,6 +223,12 @@ export async function accountClick(target) {
       target.dataset.url || new URL(target.href, location.origin).pathname,
     );
   if (action === "refresh") return loadAccountPage();
+  if (action === "payment-method") {
+    account.paymentMethod =
+      target.dataset.method === "NAGAD" ? "NAGAD" : "BKASH";
+    redraw();
+    return;
+  }
   if (action === "next" || action === "previous") {
     account.offset = Math.max(
       0,
