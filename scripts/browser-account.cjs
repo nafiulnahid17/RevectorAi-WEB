@@ -265,12 +265,12 @@ const { chromium } = require("playwright"),
     await page
       .getByRole("link", { name: "Open Production Workspace", exact: true })
       .click();
-    await page.getByText("Engine connected", { exact: true }).waitFor();
+    await page.locator('[data-connection="engine"].connected').waitFor();
     await page.locator(".bootstrap-overlay").waitFor({ state: "hidden" });
     assert.equal(await page.locator(".stepper .step").count(), 8);
     assert.equal(
       await page
-        .getByRole("heading", { name: "Upload Artwork", exact: true })
+        .getByRole("heading", { name: "Upload Your Jersey Artwork", exact: true })
         .count(),
       1,
     );
