@@ -95,6 +95,7 @@ export async function navigateAccount(path) {
   account.ticket = null;
   account.editUser = null;
   account.editModel = null;
+  account.supportFilter = "ALL";
   account.offset = 0;
   account.data = {};
   redraw();
@@ -228,6 +229,15 @@ export async function accountClick(target) {
       target.dataset.url || new URL(target.href, location.origin).pathname,
     );
   if (action === "refresh") return loadAccountPage();
+  if (action === "support-filter") {
+    const value = String(target.dataset.filter || "ALL").toUpperCase();
+    if (!["ALL", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].includes(value)) return;
+    account.supportFilter = value;
+    account.ticket = null;
+    account.messages = [];
+    redraw();
+    return;
+  }
   if (action === "payment-method") {
     account.paymentMethod =
       target.dataset.method === "NAGAD" ? "NAGAD" : "BKASH";
@@ -243,6 +253,27 @@ export async function accountClick(target) {
   }
   if (action === "logout")
     return guarded(async () => {
+      let activeJob = null;
+      try {
+        const saved = localStorage.getItem("revector.active-job");
+        activeJob = saved ? JSON.parse(saved) : null;
+      } catch {}
+      if (activeJob?.job_id) {
+        try {
+          await accountRequest(
+            "/api/revector/jobs/" +
+              encodeURIComponent(activeJob.job_id) +
+              "/cancel",
+            "POST",
+            {},
+          );
+        } catch (error) {
+          if (![404, 409].includes(error.status))
+            throw new Error(
+              "The active production job could not be cancelled. Sign out was stopped so the job is not abandoned.",
+            );
+        }
+      }
       await accountRequest("/api/auth/logout", "POST", {});
       account.profile = null;
       try {
