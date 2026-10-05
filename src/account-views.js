@@ -56,7 +56,7 @@ function login() {
 }
 
 export function userLoginGate() {
-  if (currentPath() !== "/" || account.profile || account.configured !== true)
+  if (currentPath() !== "/" || account.profile)
     return "";
   return `<div class="user-login-gate" id="user-login-gate" role="dialog" aria-modal="true" aria-labelledby="user-login-title">
     <div class="user-login-gate-card">
@@ -67,8 +67,8 @@ export function userLoginGate() {
       <div class="user-login-kicker">Secure Production Access</div>
       <h2 id="user-login-title">Sign in to continue</h2>
       <p>Your production workspace is ready. Sign in with your invited ReVector account to access projects and tools.</p>
-      ${account.configured === false
-        ? empty("Account services are not configured. Contact the workspace administrator.")
+      ${account.configured !== true
+        ? empty("Private production access is unavailable until the account service is fully configured. Contact the workspace administrator.")
         : form(
             "login",
             field("Email", "email", "email", "", 'required autocomplete="username" autofocus') +
