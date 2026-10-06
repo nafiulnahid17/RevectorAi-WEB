@@ -7,6 +7,7 @@ import {
 } from "./account-views.js";
 import {
   types,
+  DEFAULT_PART_DIMENSIONS,
   stages,
   expectedSlots,
   state,
@@ -1611,9 +1612,22 @@ function detectPartEditor(pp, matchingSlot) {
       </select>
     </label>
     <div class="two-fields">
-      ${field("Width (mm)", "part-width", pp.physical_width_mm || "", "number", 'min="0.1" max="10000" step="0.1"')}
-      ${field("Height (mm)", "part-height", pp.physical_height_mm || "", "number", 'min="0.1" max="10000" step="0.1"')}
+      ${field(
+        "Chest / Width (mm)",
+        "part-width",
+        pp.physical_width_mm ?? DEFAULT_PART_DIMENSIONS.widthMm,
+        "number",
+        'min="0.1" max="10000" step="0.1"',
+      )}
+      ${field(
+        "Length / Height (mm)",
+        "part-height",
+        pp.physical_height_mm ?? DEFAULT_PART_DIMENSIONS.heightMm,
+        "number",
+        'min="0.1" max="10000" step="0.1"',
+      )}
     </div>
+    <p class="small muted">Client default box: ${DEFAULT_PART_DIMENSIONS.chestCm} cm × ${DEFAULT_PART_DIMENSIONS.lengthCm} cm (${DEFAULT_PART_DIMENSIONS.chestIn}" × ${DEFAULT_PART_DIMENSIONS.lengthIn}"). Custom values can still be entered before confirmation.</p>
     <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
     <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
     ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
