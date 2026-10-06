@@ -1561,20 +1561,27 @@ function detectPartsSection() {
 function detectBottomBar() {
   const counts = detectStatusCounts();
   const resolved = counts.detected + counts.blank;
+  const reviewed = detectSlotDefinitions().filter((def) => {
+    const slot = slotState(def.key);
+    if (slot.status === "blank") return true;
+    const pp = partForSlot(def.key);
+    return Boolean(pp?.confirmed && pp.type === def.type);
+  }).length;
   const active =
     state.busy &&
     ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(state.job?.process_event?.event);
   const readyForProduction = reviewReady();
+  const needsConfirmation = !active && resolved === 8 && reviewed < 8;
 
   return `<section class="detect-bottom-bar ${readyForProduction ? "ready" : active ? "processing" : ""}">
     <span class="detect-bottom-icon">${active ? '<span class="spinner"></span>' : readyForProduction ? icon("check") : icon("refresh")}</span>
     <div class="detect-bottom-copy">
-      <strong>${active ? "Auto-processing parts for vectorization..." : readyForProduction ? "Part review ready for vectorization" : "Review production parts before vectorization"}</strong>
-      <small>${active ? escape(processEventLabel(state.job?.process_event)) : `${resolved} of 8 slots resolved • ${counts.uncertain} unclear • ${counts.missing} missing`}</small>
+      <strong>${active ? "Auto-processing parts for vectorization..." : readyForProduction ? "Part review ready for vectorization" : needsConfirmation ? "Confirm each detected part before vectorization" : "Review production parts before vectorization"}</strong>
+      <small>${active ? escape(processEventLabel(state.job?.process_event)) : `${resolved} of 8 slots detected • ${reviewed} of 8 reviewed • ${counts.uncertain} unclear • ${counts.missing} missing`}</small>
     </div>
     <div class="detect-bottom-progress ${active ? "running" : readyForProduction ? "complete" : ""}"><span></span></div>
     <span class="detect-bottom-step">${readyForProduction ? "Ready" : "Step 5 of 8"}</span>
-    ${btn(icon("spark") + " Next: Vectorize " + icon("chevron"), "confirm-parts", "detect-next-button", !readyForProduction || Boolean(state.draw))}
+    ${btn(icon("spark") + " Next: Vectorize " + icon("chevron"), "confirm-parts", "detect-next-button", !readyForProduction || Boolean(state.draw), readyForProduction ? "" : 'title="Review and confirm every detected production part before vectorization"')}
   </section>`;
 }
 
