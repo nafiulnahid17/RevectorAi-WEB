@@ -2093,15 +2093,24 @@ function validationMain() {
 function formatSupport(format) {
   const deps = state.health?.dependencies || state.health?.capabilities || {};
   if (format === "svg") return { enabled: true, note: "Canonical editable vector" };
+  if (format === "png")
+    return {
+      enabled: Boolean(deps.inkscape),
+      note: "300 DPI print proof at physical part size",
+    };
   if (format === "pdf")
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages),
-      note: "Requires Inkscape + Poppler validation",
+      note: deps.inkscape && deps.pdfinfo && deps.pdfimages
+        ? "Validated editable PDF"
+        : "Requires Inkscape + Poppler validation",
     };
   if (format === "eps")
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript),
-      note: "Requires Inkscape + Poppler + Ghostscript",
+      note: deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript
+        ? "Validated Illustrator-compatible EPS"
+        : "Requires Inkscape + Poppler + Ghostscript",
     };
   return { enabled: false, note: "Native AI export is unavailable" };
 }
@@ -2138,10 +2147,10 @@ function downloadMain() {
     <section class="card stack">
       <div>
         <h2>Export Formats</h2>
-        <p class="small muted">Only engine-supported formats can be selected. Native Adobe .AI is not generated or renamed from another format.</p>
+        <p class="small muted">SVG/EPS/PDF preserve vector geometry. PNG is generated as a 300 DPI print proof at the confirmed physical part size. Native Adobe .AI is not generated or renamed from another format.</p>
       </div>
       <div class="formats export-formats">
-        ${["svg", "eps", "pdf", "ai"]
+        ${["svg", "eps", "pdf", "png", "ai"]
           .map((format) => {
             const support = formatSupport(format);
             const selected = state.downloadFormats.has(format);
