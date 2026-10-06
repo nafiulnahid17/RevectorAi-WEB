@@ -1,5 +1,15 @@
 const API = "/api/revector";
 
+const DEFAULT_PART_DIMENSIONS = Object.freeze({
+  widthMm: 558.8,
+  heightMm: 787.4,
+  chestCm: 55.88,
+  lengthCm: 78.74,
+  chestIn: 22,
+  lengthIn: 31,
+});
+
+
 const types = [
   "unknown",
   "front_body",
@@ -423,6 +433,7 @@ function loadActiveJob() {
 
 export {
   API,
+  DEFAULT_PART_DIMENSIONS,
   types,
   stages,
   expectedSlots,
