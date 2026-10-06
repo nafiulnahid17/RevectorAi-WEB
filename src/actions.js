@@ -409,7 +409,7 @@ function saveDownload(key) {
 }
 
 function chosenFormats() {
-  const supported = new Set(["svg", "pdf", "eps"]);
+  const supported = new Set(["svg", "pdf", "eps", "png"]);
   return [...state.downloadFormats].filter((format) => supported.has(format));
 }
 
