@@ -78,9 +78,14 @@ async function upload(file) {
       const settings = {
         preset: state.preset,
         vector_mode: state.mode,
+        max_colors: 32,
+        delta_e: 2,
+        min_region_area: 2,
         noise_reduction: state.noise ?? true,
         preserve_original_colors: state.colors ?? true,
-        ocr: state.ocr ?? false,
+        ocr: true,
+        text_mode: "outlined",
+        allow_contour_fallback: false,
         ai_workflow: true,
       };
       const name =
