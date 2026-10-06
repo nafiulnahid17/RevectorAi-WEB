@@ -426,12 +426,17 @@ async function exportSelected() {
     if (!formats.length) throw new Error("Select at least one supported format.");
 
     if (ids.length === 1 && formats.length === 1) {
-      const result = await stage("export", { part_ids: ids, formats });
+      const result = await stage("export", {
+        part_ids: ids,
+        formats,
+        bundle: "selected_files",
+      });
       saveDownload(result.part_files?.[ids[0]]?.[formats[0]]);
     } else {
       const result = await stage("export", {
         part_ids: ids,
         formats: [...formats, "zip"],
+        bundle: "selected_files",
       });
       saveDownload(result.exports?.zip);
     }
@@ -454,6 +459,7 @@ async function exportPack() {
     const result = await stage("export", {
       part_ids: ids,
       formats: [...formats, "zip"],
+      bundle: "production_pack",
     });
     saveDownload(result.exports?.zip);
     toast("Production Pack is ready. It contains individual parts only.");
