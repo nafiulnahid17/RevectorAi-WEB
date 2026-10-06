@@ -1,5 +1,6 @@
 import {
   types,
+  DEFAULT_PART_DIMENSIONS,
   state,
   expectedSlots,
   part,
@@ -178,29 +179,48 @@ async function savePart() {
   const form = document.querySelector("#part-form");
   if (!pp || !form) return;
   const data = new FormData(form);
-  const width = data.get("part-width");
-  const height = data.get("part-height");
-  if (Boolean(width) !== Boolean(height))
-    throw new Error("Enter both width and height, or leave both blank.");
+  const width = Number(data.get("part-width") || DEFAULT_PART_DIMENSIONS.widthMm);
+  const height = Number(data.get("part-height") || DEFAULT_PART_DIMENSIONS.heightMm);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0)
+    throw new Error("Enter valid part width and height.");
 
   const payload = {
     project_id: state.project.project_id,
     name: String(data.get("part-name") || pp.name).trim(),
     type: data.get("part-type") || pp.type,
-    physical_width_mm: width ? Number(width) : null,
-    physical_height_mm: height ? Number(height) : null,
+    physical_width_mm: width,
+    physical_height_mm: height,
     bleed_mm: Number(data.get("part-bleed") || 0),
     safe_zone_mm: Number(data.get("part-safe") || 0),
     confirmed: true,
   };
 
+  let startProduction = false;
   await perform(async () => {
     state.operation = "Confirming Part";
     state.project = await post(`/segments/${pp.part_id}/update`, payload);
     state.shape = null;
     await refresh();
-    toast("Part confirmed with the engine geometry.");
+    try {
+      const decisions = decisionsForReview();
+      const ids = Object.values(decisions)
+        .filter((decision) => decision.status === "confirmed")
+        .map((decision) => decision.part_id);
+      startProduction =
+        ids.length > 0 &&
+        new Set(ids).size === ids.length &&
+        (state.project.parts || []).every((item) => ids.includes(item.part_id));
+    } catch {
+      startProduction = false;
+    }
+    toast(
+      startProduction
+        ? "Final part confirmed. Starting vector production..."
+        : "Part confirmed with the engine geometry.",
+    );
   });
+
+  if (startProduction) await confirmParts();
 }
 
 function decisionsForReview() {
@@ -279,6 +299,7 @@ async function createMissing(slot) {
 
 async function leaveBlank(slot) {
   state.selectedSlot = slot;
+  let startProduction = false;
   await perform(async () => {
     state.operation = `Leaving ${label(slot)} Blank`;
     state.project = await post("/slots/update", {
@@ -287,7 +308,20 @@ async function leaveBlank(slot) {
       status: "blank",
     });
     await refresh();
+    try {
+      const decisions = decisionsForReview();
+      const ids = Object.values(decisions)
+        .filter((decision) => decision.status === "confirmed")
+        .map((decision) => decision.part_id);
+      startProduction =
+        ids.length > 0 &&
+        new Set(ids).size === ids.length &&
+        (state.project.parts || []).every((item) => ids.includes(item.part_id));
+    } catch {
+      startProduction = false;
+    }
   });
+  if (startProduction) await confirmParts();
 }
 
 function manualSlot(slot) {
