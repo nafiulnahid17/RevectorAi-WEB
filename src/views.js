@@ -1573,7 +1573,7 @@ function vectorSelectionPanel() {
         const body = ["front_body", "back_body"].includes(pp.type);
         const sized = body || Boolean(pp.physical_width_mm && pp.physical_height_mm);
         return `<label class="download-part ${selected ? "selected" : ""}">
-          <input type="checkbox" data-action="toggle-production-part" data-id="${pp.part_id}" ${selected ? "checked" : ""}>
+          <input type="checkbox" data-action="toggle-production-part" data-id="${pp.part_id}" ${selected ? "checked" : ""} ${state.busy ? "disabled" : ""}>
           <div class="download-thumb">${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
           <span>
             <strong>${escape(pp.name)}</strong>
@@ -1799,7 +1799,7 @@ function partInspector() {
       <div><div class="section-kicker">Selected Part</div><h2>${escape(pp.name)}</h2></div>
       ${badge(pp.confirmed ? "Confirmed" : "Needs Review", pp.confirmed ? "success" : "warning")}
     </div>
-    ${matchingSlot ? `<p class="small muted">Slot: ${escape(matchingSlot.label)}</p>` : '<p class="small muted">This component is not assigned to an eight-part slot yet.</p>'}
+    ${matchingSlot ? `<p class="small muted">Slot: ${escape(matchingSlot.label)}</p>` : '<p class="small muted">This component is outside the standard reference slots.</p>'}
     <form id="part-form" class="stack">
       ${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
       <label>Category
@@ -2160,14 +2160,14 @@ function formatSupport(format) {
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages),
       note: deps.inkscape && deps.pdfinfo && deps.pdfimages
-        ? "Validated editable PDF"
+        ? "CMYK vector-preserving PDF"
         : "Requires Inkscape + Poppler validation",
     };
   if (format === "eps")
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript),
       note: deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript
-        ? "Validated Illustrator-compatible EPS"
+        ? "CMYK EPSF 3.0 / PostScript Level 2"
         : "Requires Inkscape + Poppler + Ghostscript",
     };
   return { enabled: false, note: "Native AI export is unavailable" };
