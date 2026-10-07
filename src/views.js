@@ -1639,7 +1639,8 @@ function detectPartEditor(pp, matchingSlot) {
         : "No physical size is forced for this extra component. Supply dimensions when required for 1:1 print output."}</p>
     <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
     <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
-    ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
+    ${pp.confirmed ? badge("Confirmed", "success") : ""}
+    ${btn(icon("check") + (pp.confirmed ? " Save & Reconfirm Part" : " Save & Confirm Part"), "save-part", "detect-inspector-primary", pp.locked)}
     ${btn(icon("pen") + " Redraw Boundary", "draw-update", "quiet full-width", pp.locked)}
     ${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
   </form>`;
@@ -2042,30 +2043,48 @@ function partValidation(pp) {
 function validationMain() {
   const v = state.project?.validation;
   const pass = ready();
+  const selectedIds = new Set(
+    state.selectedProduction.size
+      ? [...state.selectedProduction]
+      : state.project?.ai_metadata?.review?.selected_part_ids || [],
+  );
+  const productionParts = (state.project?.parts || []).filter((pp) =>
+    selectedIds.has(pp.part_id),
+  );
+  const failedParts = productionParts.filter((pp) => {
+    const report = partValidation(pp);
+    return Boolean(pp.error || (report && report.status !== "PASS"));
+  });
+
   return `<main class="main-column validation-main">
     <div class="validation-split">
       <section class="card stack">
         <div>
-          <div class="section-kicker">Completed Vector Parts</div>
+          <div class="section-kicker">Selected Production Parts</div>
           <h2>Vector Output</h2>
+          <p class="small muted">Only the selected production set is validated. A failed part can be fixed later or excluded from this run without deleting it from the project.</p>
         </div>
         <div class="validation-parts">
-          ${(state.project?.parts || [])
+          ${productionParts
             .map((pp) => {
               const report = partValidation(pp);
-              return `<button data-action="select-part" data-id="${pp.part_id}" class="validation-part ${state.selected === pp.part_id ? "active" : ""}">
-                ${picture(pp.corrected_crop, pp.name)}
-                <span><strong>${escape(pp.name)}</strong><small>${report ? `${report.paths || 0} paths - ${report.rasters || 0} rasters` : "No validation result"}</small></span>
-                ${report?.status === "PASS" ? badge("PASS", "success") : pp.error ? badge("Failed", "error") : badge("Pending", "warning")}
-              </button>`;
+              const failed = Boolean(pp.error || (report && report.status !== "PASS"));
+              return `<div class="validation-part-row">
+                <button data-action="select-part" data-id="${pp.part_id}" class="validation-part ${state.selected === pp.part_id ? "active" : ""}">
+                  ${picture(pp.corrected_crop, pp.name)}
+                  <span><strong>${escape(pp.name)}</strong><small>${report ? `${report.paths || 0} paths - ${report.rasters || 0} rasters` : pp.error?.message || "Waiting for validation"}</small></span>
+                  ${report?.status === "PASS" ? badge("PASS", "success") : failed ? badge("Failed", "error") : badge("Pending", "warning")}
+                </button>
+                ${failed ? btn("Exclude From This Run", "exclude-production", "quiet danger", false, `data-id="${pp.part_id}"`) : ""}
+              </div>`;
             })
-            .join("")}
+            .join("") || '<p class="muted">No selected production parts are available.</p>'}
         </div>
       </section>
       <section class="card stack validation-results">
         <div class="row between">
-          <div><div class="section-kicker">Deterministic Validation</div><h2>${state.busy ? "Validation Running" : pass ? "Validation Completed" : v ? "Validation Failed" : "Validation Pending"}</h2></div>
-          ${badge(pass ? "PASS" : v ? "FAIL" : "Pending", pass ? "success" : v ? "error" : "warning")}
+          <div><div class="section-kicker">Deterministic Validation</div><h2>${state.busy ? "Validation Running" : pass ? "Validation Completed" : v || failedParts.length ? "Review Required" : "Validation Pending"}</h2></div>
+          ${badge(pass ? "PASS" : v || failedParts.length ? "REVIEW" : "Pending", pass ? "success" : v || failedParts.length ? "warning" : "")}
         </div>
         ${state.busy
           ? processingPanel("Validation")
@@ -2083,15 +2102,22 @@ function validationMain() {
                 .join("")}
             </div>
             <div class="compatibility-row">
+              <span>Resolution Independent</span>
+              ${badge(v?.resolution_independent === true ? "PASS" : "Not validated", v?.resolution_independent === true ? "success" : "")}
+            </div>
+            <div class="compatibility-row">
               <span>Illustrator Compatibility</span>
               ${badge(v?.illustrator_compatibility || "Not validated", v?.illustrator_compatibility === "PASS" ? "success" : v?.illustrator_compatibility ? "warning" : "")}
             </div>
             <p class="small muted">${escape(v?.compatibility_scope || "Static compatibility is reported by the engine; Adobe Illustrator application acceptance is not claimed.")}</p>
             ${btn("View Validation Report", "report", "quiet full-width", !v)}
-            ${!pass && v
+            ${!pass
               ? `<div class="validation-recovery">
-                  <p class="note warning">Download remains blocked until deterministic validation passes.</p>
-                  ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  <p class="note warning">Fix/retry a failed part, or exclude it from this production run and vectorize the remaining selected parts again. Exclusion does not delete the part.</p>
+                  <div class="row">
+                    ${btn("Review / Change Selection", "navigate", "primary", false, 'data-step="2"')}
+                    ${btn("Open Error Assistant", "assistant-toggle", "quiet", !state.error)}
+                  </div>
                 </div>`
               : ""}`}
       </section>
