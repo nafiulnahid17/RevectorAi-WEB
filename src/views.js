@@ -2080,6 +2080,7 @@ function vectorMain() {
       <div class="row wrap">
         ${btn("Retry Failed Part", "recover-selected", "primary")}
         ${btn("Use Fallback Trace", "recover-selected-fallback", "quiet")}
+        ${btn("Exclude From Current Run", "exclude-selected-production", "quiet danger")}
       </div>
     </section>` : ""}
   </main>`;
@@ -2140,7 +2141,10 @@ function validationMain() {
             ${!pass && v
               ? `<div class="validation-recovery">
                   <p class="note warning">Download remains blocked until deterministic validation passes.</p>
-                  ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  <div class="row wrap">
+                    ${btn("Review / Change Part Selection", "return-part-selection", "quiet")}
+                    ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  </div>
                 </div>`
               : ""}`}
       </section>
