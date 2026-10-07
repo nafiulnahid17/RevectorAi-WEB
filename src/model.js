@@ -95,6 +95,7 @@ const state = {
   connectionMessage: "",
   networkOnline: typeof navigator === "undefined" ? true : navigator.onLine,
   reconnecting: false,
+  selectedProduction: new Set(),
   selectedExports: new Set(),
   selectionInitialized: false,
   downloadFormats: new Set(["svg"]),
