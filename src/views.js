@@ -1286,7 +1286,13 @@ function reviewReady() {
   const parts = state.project?.parts || [];
   const byId = new Map(parts.map((item) => [item.part_id, item]));
   const ids = [...state.selectedExports].filter((id) => byId.has(id));
-  return (\n    ids.length > 0 &&\n    ids.every((id) => {\n      const pp = byId.get(id);\n      return pp?.source === "engine_refined" || pp?.confirmed === true;\n    })\n  );
+  return (
+    ids.length > 0 &&
+    ids.every((id) => {
+      const pp = byId.get(id);
+      return pp?.source === "engine_refined" || pp?.confirmed === true;
+    })
+  );
 }
 
 function detectSlotDefinitions() {
