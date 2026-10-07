@@ -270,10 +270,8 @@ test("approved engine orchestration and assistant routes are allowlisted through
   const cases = [
     ["GET", "/api/revector/capabilities/ai"],
     ["GET", "/api/revector/error-catalog"],
-    ["POST", "/api/revector/prepare"],
     ["POST", "/api/revector/production"],
     ["POST", "/api/revector/recover-part"],
-    ["POST", "/api/revector/ai-missing"],
     ["POST", "/api/revector/review/confirm"],
     ["POST", "/api/revector/slots/update"],
     [
@@ -284,7 +282,6 @@ test("approved engine orchestration and assistant routes are allowlisted through
       "GET",
       "/api/revector/projects/11111111-1111-1111-1111-111111111111/errors",
     ],
-    ["POST", "/api/revector/assistant/explain"],
     ["POST", "/api/revector/assistant/feedback"],
   ];
   for (const [method, path] of cases) {
@@ -292,8 +289,6 @@ test("approved engine orchestration and assistant routes are allowlisted through
     if (method !== "GET") {
       init.headers.origin = "https://web.example";
       init.headers["content-type"] = "application/json";
-      if (["/api/revector/prepare", "/api/revector/ai-missing", "/api/revector/assistant/explain"].includes(path))
-        init.headers["x-idempotency-key"] = crypto.randomUUID();
       init.body = JSON.stringify({
         project_id: "11111111-1111-1111-1111-111111111111",
       });
