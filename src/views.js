@@ -1524,22 +1524,9 @@ function detectBoundaryEditor() {
 }
 
 function detectExtraComponents() {
-  const extras = unassignedParts();
-  if (!extras.length) return "";
-  return `<section class="detect-extras">
-    <div class="row between">
-      <div><h3>Additional Detected Components</h3><p class="small muted">These real engine components sit outside the eight standard labels. They remain fully selectable and can be vectorized independently.</p></div>
-      ${badge(extras.length, "purple")}
-    </div>
-    <div class="compact-parts">
-      ${extras.map((pp) => `<button data-action="select-part" data-id="${pp.part_id}" class="${state.selected === pp.part_id ? "active" : ""}">
-        ${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}
-        <span><strong>${escape(pp.name)}</strong><small>${escape(label(pp.type))} • ${state.selectedExports.has(pp.part_id) ? "Selected" : "Not selected"}</small></span>
-      </button>`).join("")}
-    </div>
-  </section>`;
+  // Dynamic components are already shown in the main detected-parts selection.
+  return "";
 }
-
 function detectPartsSection() {
   const p = state.project;
   const parts = p?.parts || [];
