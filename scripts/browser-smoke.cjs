@@ -93,7 +93,7 @@ const { execFileSync } = require("node:child_process");
   await page.getByText("Uploading artwork...", { exact: true }).waitFor();
   await page.locator(".upload-reference-progress .upload-progress-track").waitFor();
   await page
-    .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
+    .getByRole("heading", { name: /Detected Jersey Parts \(\d+\)/ })
     .waitFor({ timeout: 120000 });
 
   const pid = await page.evaluate(() =>
@@ -179,7 +179,7 @@ const { execFileSync } = require("node:child_process");
 
   await page.locator('button.step[data-step="2"]').click();
   await page
-    .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
+    .getByRole("heading", { name: /Detected Jersey Parts \(\d+\)/ })
     .waitFor();
   await page
     .getByRole("heading", { name: "Detect Jersey Parts", exact: true })
@@ -234,8 +234,8 @@ const { execFileSync } = require("node:child_process");
   );
 
   const assignments = [
-    { name: "Front Body", type: "front_body", width: "520", height: "700" },
-    { name: "Back Body", type: "back_body", width: "520", height: "700" },
+    { name: "Front Body", type: "front_body" },
+    { name: "Back Body", type: "back_body" },
   ];
 
   for (const assignment of assignments) {
@@ -248,8 +248,10 @@ const { execFileSync } = require("node:child_process");
     await extras.first().click();
     await page.locator('[name="part-name"]').fill(assignment.name);
     await page.locator('[name="part-type"]').selectOption(assignment.type);
-    await page.locator('[name="part-width"]').fill(assignment.width);
-    await page.locator('[name="part-height"]').fill(assignment.height);
+    // Try alternate dimensions deliberately; the client body contract must
+    // override them to exactly 558.8 × 787.4 mm when the part is confirmed.
+    await page.locator('[name="part-width"]').fill("520");
+    await page.locator('[name="part-height"]').fill("700");
     await page
       .getByRole("button", { name: "Save & Confirm Part", exact: true })
       .click();
@@ -260,35 +262,38 @@ const { execFileSync } = require("node:child_process");
     );
   }
 
-  extras = page.locator(".compact-parts button");
-  while ((await extras.count()) > 0) {
-    const before = await extras.count();
-    await extras.first().click();
-    await page
-      .getByRole("button", { name: "Remove Part", exact: true })
-      .click();
-    await page.waitForFunction(
-      (expected) =>
-        document.querySelectorAll(".compact-parts button").length === expected,
-      before - 1,
-    );
-    extras = page.locator(".compact-parts button");
+  const reviewedProject = await (
+    await page.request.get(base + "/api/revector/projects/" + pid)
+  ).json();
+  const bodyParts = reviewedProject.parts.filter((part) =>
+    ["front_body", "back_body"].includes(part.type),
+  );
+  assert.equal(bodyParts.length, 2);
+  assert.ok(
+    bodyParts.every(
+      (part) =>
+        part.confirmed === true &&
+        part.physical_width_mm === 558.8 &&
+        part.physical_height_mm === 787.4,
+    ),
+    "Front/back body must be locked to the client's 22 × 31 inch size",
+  );
+
+  for (const name of ["Front Body", "Back Body"]) {
+    const card = page.locator(".detect-slot-card").filter({ hasText: name }).first();
+    await card.locator('input[name="vectorize-part"]').check();
   }
 
-  let missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
-  while ((await missingSlots.count()) > 0) {
-    const before = await missingSlots.count();
-    await missingSlots.first().click();
-    const blankButton = page.locator('.detect-inspector [data-action="leave-blank"]');
-    await blankButton.waitFor();
-    await blankButton.click();
-    await page.waitForFunction(
-      (expected) =>
-        document.querySelectorAll(".detect-slot-card.missing .detect-slot-select").length === expected,
-      before - 1,
-    );
-    missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
-  }
+  assert.equal(
+    await page.locator('input[name="vectorize-part"]:checked').count(),
+    2,
+    "Exactly two confirmed parts should be selected for production",
+  );
+  assert.ok(
+    (await page.locator(".detect-slot-card.missing").count()) > 0 ||
+      (await page.locator(".compact-parts button").count()) > 0,
+    "Unselected/missing components must be allowed to remain without blocking production",
+  );
 
   await page.screenshot({
     path: path.join(out, "01-detected-parts-review.png"),
@@ -309,6 +314,13 @@ const { execFileSync } = require("node:child_process");
   assert.equal(finalProject.validation.status, "PASS");
   assert.equal(finalProject.validation.embedded_rasters, 0);
   assert.ok(finalProject.validation.vector_paths > 0);
+  assert.equal(finalProject.validation.resolution_independent, true);
+  assert.equal(finalProject.validation.selected_part_ids.length, 2);
+  assert.equal(finalProject.validation.parts.length, 2);
+  assert.deepEqual(
+    new Set(finalProject.validation.selected_part_ids),
+    new Set(bodyParts.map((part) => part.part_id)),
+  );
 
   const voicesAfterValidation = await page.evaluate(() =>
     window.__revectorVoice.slice(),

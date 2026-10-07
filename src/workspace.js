@@ -92,6 +92,14 @@ app.addEventListener("input", (event) => {
 app.addEventListener("change", (event) => {
   const element = event.target;
 
+  if (element.name === "vectorize-part") {
+    element.checked
+      ? state.selectedProduction.add(element.value)
+      : state.selectedProduction.delete(element.value);
+    render();
+    return;
+  }
+
   if (element.name === "export-part") {
     element.checked
       ? state.selectedExports.add(element.value)

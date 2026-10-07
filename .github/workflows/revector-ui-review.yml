@@ -48,16 +48,17 @@ jobs:
 
   engine-browser:
     needs: frontend
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - name: Checkout web review branch
         uses: actions/checkout@v4
-      - name: Checkout approved engine commit read-only
+      - name: Checkout client-production engine branch read-only
         uses: actions/checkout@v4
         with:
           repository: nafiulnahid17/RevectorAI-Tool
-          ref: 699ac010ad73c6eb5f8bf4b932f9cd5952879aff
+          ref: upgrade/client-production-flow
           path: engine
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -80,7 +81,7 @@ jobs:
           python -m venv engine/.venv
           engine/.venv/bin/pip install --upgrade pip
           (cd engine && .venv/bin/pip install -r requirements.txt)
-      - name: Verify approved engine regression suite
+      - name: Verify client-production engine regression suite
         working-directory: engine
         run: .venv/bin/pytest
       - name: Build web workspace
