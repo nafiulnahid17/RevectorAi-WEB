@@ -24,6 +24,9 @@ const types = [
   "right_shoulder",
   "left_cuff",
   "right_cuff",
+  "left_side_panel",
+  "right_side_panel",
+  "pocket",
   "trim",
   "other_part",
 ];
