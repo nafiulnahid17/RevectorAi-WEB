@@ -854,6 +854,18 @@ async function handle(action, target) {
     case "recover-selected":
       await executeRecovery("retry_part");
       break;
+    case "exclude-selected-production": {
+      const id = state.selected;
+      if (id) state.selectedProduction.delete(id);
+      state.step = 2;
+      toast("Part excluded from the current vectorization selection. The project part is preserved.");
+      render();
+      break;
+    }
+    case "return-part-selection":
+      state.step = 2;
+      render();
+      break;
     case "recover-selected-fallback":
       await executeRecovery("use_fallback_trace");
       break;
