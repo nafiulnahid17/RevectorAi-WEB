@@ -201,6 +201,7 @@ async function savePart() {
       throw new Error("Enter both physical width and height, or leave both blank for a resolution-independent uncalibrated vector.");
   }
 
+  const needsConfirmation = pp.source !== "engine_refined";
   const payload = {
     project_id: state.project.project_id,
     name: String(data.get("part-name") || pp.name).trim(),
@@ -209,18 +210,20 @@ async function savePart() {
     physical_height_mm: height,
     bleed_mm: Number(data.get("part-bleed") || 0),
     safe_zone_mm: Number(data.get("part-safe") || 0),
-    confirmed: true,
+    ...(needsConfirmation ? { confirmed: true } : {}),
   };
 
   await perform(async () => {
-    state.operation = "Confirming Part";
+    state.operation = needsConfirmation ? "Confirming Part" : "Saving Part Details";
     state.project = await post(`/segments/${pp.part_id}/update`, payload);
     state.shape = null;
     await refresh();
     toast(
       bodyPart
-        ? "Part confirmed at the client 558.8 × 787.4 mm production size."
-        : "Part confirmed. Select it for vectorization when ready.",
+        ? "Part saved at the client 558.8 × 787.4 mm production size."
+        : needsConfirmation
+          ? "Reconstructed/manual part confirmed. It can now be vectorized."
+          : "Detected part details saved. Detection itself is already production-ready.",
     );
   });
 }
@@ -242,8 +245,8 @@ function decisionsForReview(selectedIds = selectedProductionIds()) {
     }
     if (!current?.part_id || !selected.has(current.part_id)) continue;
     const pp = state.project.parts?.find((item) => item.part_id === current.part_id);
-    if (!pp?.confirmed)
-      throw Object.assign(new Error(`${slot.label} is selected but still requires confirmation.`), {
+    if (pp?.source !== "engine_refined" && !pp?.confirmed)
+      throw Object.assign(new Error(`${slot.label} was reconstructed or manually edited and still requires confirmation.`), {
         code: "PART_REVIEW_REQUIRED",
         category: "parts",
         part_id: current.part_id,
@@ -263,12 +266,14 @@ async function confirmParts() {
   const selectedParts = ids
     .map((id) => state.project.parts.find((item) => item.part_id === id))
     .filter(Boolean);
-  const unconfirmed = selectedParts.filter((item) => !item.confirmed);
+  const unconfirmed = selectedParts.filter(
+    (item) => item.source !== "engine_refined" && !item.confirmed,
+  );
   if (unconfirmed.length) {
     state.selected = unconfirmed[0].part_id;
     render();
     throw Object.assign(
-      new Error("Confirm every selected part before starting vectorization."),
+      new Error("Confirm reconstructed or manually edited selected parts before vectorization. Engine-detected parts are already ready."),
       { code: "PART_REVIEW_REQUIRED", category: "parts", part_id: unconfirmed[0].part_id },
     );
   }
@@ -314,7 +319,7 @@ async function excludeFailedPart(partId) {
 
   const reusable = remaining.filter((id) => {
     const pp = state.project?.parts?.find((item) => item.part_id === id);
-    return Boolean(pp?.confirmed && pp?.vector && pp?.cache?.optimize && !pp?.error);
+    return Boolean((pp?.source === "engine_refined" || pp?.confirmed) && pp?.vector && pp?.cache?.optimize && !pp?.error);
   });
   if (reusable.length !== remaining.length) {
     toast("Failed part excluded. A remaining part still needs vector recovery before validation.");
