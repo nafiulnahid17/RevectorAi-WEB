@@ -1,13 +1,41 @@
 const API = "/api/revector";
 
-const DEFAULT_PART_DIMENSIONS = Object.freeze({
+const BODY_PART_DIMENSIONS = Object.freeze({
   widthMm: 558.8,
   heightMm: 787.4,
-  chestCm: 55.88,
-  lengthCm: 78.74,
-  chestIn: 22,
-  lengthIn: 31,
+  widthCm: 55.88,
+  heightCm: 78.74,
+  widthIn: 22,
+  heightIn: 31,
 });
+
+const PART_DIMENSION_DEFAULTS = Object.freeze({
+  front_body: [558.8, 787.4],
+  back_body: [558.8, 787.4],
+  left_sleeve: [330.2, 457.2],
+  right_sleeve: [330.2, 457.2],
+  front_collar: [254, 127],
+  back_collar: [254, 127],
+  top_trim: [558.8, 76.2],
+  bottom_trim: [558.8, 76.2],
+  trim: [558.8, 76.2],
+  left_cuff: [254, 101.6],
+  right_cuff: [254, 101.6],
+  left_shoulder: [279.4, 203.2],
+  right_shoulder: [279.4, 203.2],
+});
+
+function suggestedPartDimensions(partOrType) {
+  const type = typeof partOrType === "string" ? partOrType : partOrType?.type;
+  const values = PART_DIMENSION_DEFAULTS[type];
+  return values ? { widthMm: values[0], heightMm: values[1] } : { widthMm: "", heightMm: "" };
+}
+
+function validatedPartIds(project = state.project) {
+  return new Set(project?.validation?.selected_part_ids || (project?.validation?.parts || [])
+    .filter((entry) => entry?.status === "PASS")
+    .map((entry) => entry.part_id));
+}
 
 
 const types = [
@@ -95,6 +123,7 @@ const state = {
   connectionMessage: "",
   networkOnline: typeof navigator === "undefined" ? true : navigator.onLine,
   reconnecting: false,
+  selectedProduction: new Set(),
   selectedExports: new Set(),
   selectionInitialized: false,
   downloadFormats: new Set(["svg"]),
@@ -433,7 +462,10 @@ function loadActiveJob() {
 
 export {
   API,
-  DEFAULT_PART_DIMENSIONS,
+  BODY_PART_DIMENSIONS,
+  PART_DIMENSION_DEFAULTS,
+  suggestedPartDimensions,
+  validatedPartIds,
   types,
   stages,
   expectedSlots,
