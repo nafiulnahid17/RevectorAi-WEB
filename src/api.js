@@ -5,6 +5,7 @@ import {
   processEventLabel,
   loadLocalProjectMeta,
   persistActiveJob,
+  validatedPartIds,
 } from "./model.js";
 import { localAdvice } from "./error-catalog.js";
 import { render } from "./views.js";
@@ -178,11 +179,17 @@ async function refresh() {
 
   const ids = new Set((state.project.parts || []).map((p) => p.part_id));
   if (!ids.has(state.selected)) state.selected = state.project.parts?.[0]?.part_id || null;
-  state.selectedExports = new Set(
-    [...state.selectedExports].filter((id) => ids.has(id)),
+
+  state.selectedProduction = new Set(
+    [...state.selectedProduction].filter((id) => ids.has(id)),
   );
-  if (!state.selectionInitialized && ids.size) {
-    for (const id of ids) state.selectedExports.add(id);
+
+  const validated = validatedPartIds(state.project);
+  state.selectedExports = new Set(
+    [...state.selectedExports].filter((id) => ids.has(id) && validated.has(id)),
+  );
+  if (!state.selectionInitialized && validated.size) {
+    state.selectedExports = new Set(validated);
     state.selectionInitialized = true;
   }
 
