@@ -183,6 +183,10 @@ async function refresh() {
   state.selectedProduction = new Set(
     [...state.selectedProduction].filter((id) => ids.has(id)),
   );
+  if (!state.selectedProduction.size) {
+    const reviewedIds = state.project?.ai_metadata?.review?.selected_part_ids || [];
+    state.selectedProduction = new Set(reviewedIds.filter((id) => ids.has(id)));
+  }
 
   const validated = validatedPartIds(state.project);
   state.selectedExports = new Set(
