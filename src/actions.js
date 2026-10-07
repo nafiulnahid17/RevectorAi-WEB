@@ -113,6 +113,7 @@ async function upload(file) {
       type: file.type,
     };
     state.selectionInitialized = false;
+    state.selectedProduction.clear();
     state.selectedExports.clear();
     state.selected = null;
     state.shape = null;
@@ -170,6 +171,7 @@ function resetWorkspace() {
   state.requirements = [];
   state.uploadMeta = null;
   state.selectionInitialized = false;
+  state.selectedProduction.clear();
   state.selectedExports.clear();
   state.downloadFormats = new Set(["svg"]);
   state.shape = null;
@@ -184,15 +186,31 @@ async function savePart() {
   const form = document.querySelector("#part-form");
   if (!pp || !form) return;
   const data = new FormData(form);
-  const width = Number(data.get("part-width") || DEFAULT_PART_DIMENSIONS.widthMm);
-  const height = Number(data.get("part-height") || DEFAULT_PART_DIMENSIONS.heightMm);
+  const type = data.get("part-type") || pp.type;
+  const isBody = ["front_body", "back_body"].includes(type);
+  const widthRaw = data.get("part-width");
+  const heightRaw = data.get("part-height");
+  const width = isBody
+    ? DEFAULT_PART_DIMENSIONS.widthMm
+    : Number(widthRaw || pp.physical_width_mm || 0);
+  const height = isBody
+    ? DEFAULT_PART_DIMENSIONS.heightMm
+    : Number(heightRaw || pp.physical_height_mm || 0);
+
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0)
-    throw new Error("Enter valid part width and height.");
+    throw Object.assign(
+      new Error(
+        isBody
+          ? "Front and back body use the locked 558.8 × 787.4 mm client size."
+          : "Enter the real physical width and height for this component before confirmation.",
+      ),
+      { code: "PART_DIMENSIONS_REQUIRED", category: "parts", part_id: pp.part_id },
+    );
 
   const payload = {
     project_id: state.project.project_id,
     name: String(data.get("part-name") || pp.name).trim(),
-    type: data.get("part-type") || pp.type,
+    type,
     physical_width_mm: width,
     physical_height_mm: height,
     bleed_mm: Number(data.get("part-bleed") || 0),
@@ -200,87 +218,95 @@ async function savePart() {
     confirmed: true,
   };
 
-  let startProduction = false;
   await perform(async () => {
     state.operation = "Confirming Part";
     state.project = await post(`/segments/${pp.part_id}/update`, payload);
     state.shape = null;
     await refresh();
-    try {
-      const decisions = decisionsForReview();
-      const ids = Object.values(decisions)
-        .filter((decision) => decision.status === "confirmed")
-        .map((decision) => decision.part_id);
-      startProduction =
-        ids.length > 0 &&
-        new Set(ids).size === ids.length &&
-        (state.project.parts || []).every((item) => ids.includes(item.part_id));
-    } catch {
-      startProduction = false;
-    }
     toast(
-      startProduction
-        ? "Final part confirmed. Starting vector production..."
-        : "Part confirmed with the engine geometry.",
+      isBody
+        ? "Part confirmed at the client-locked 558.8 × 787.4 mm body size."
+        : "Part confirmed with its production dimensions.",
     );
   });
-
-  if (startProduction) await confirmParts();
 }
 
-function decisionsForReview() {
+function decisionsForSelection(ids) {
+  const selected = new Set(ids);
   const decisions = {};
   for (const slot of expectedSlots) {
     const current = state.project.slots?.[slot.key];
-    if (current?.status === "blank") {
-      decisions[slot.key] = { status: "blank" };
-      continue;
-    }
-    const pp = state.project.parts?.find((item) => item.part_id === current?.part_id);
-    if (!pp)
-      throw Object.assign(new Error(`${slot.label} is unresolved.`), {
-        code: "PART_REVIEW_REQUIRED",
-        category: "parts",
-      });
-    if (pp.type !== slot.type)
-      throw Object.assign(
-        new Error(`${slot.label} must be classified as ${slot.label} before confirmation.`),
-        { code: "PART_REVIEW_REQUIRED", category: "parts", part_id: pp.part_id },
-      );
-    if (!pp.confirmed)
-      throw Object.assign(new Error(`${slot.label} still requires confirmation.`), {
-        code: "PART_REVIEW_REQUIRED",
-        category: "parts",
-        part_id: pp.part_id,
-      });
-    decisions[slot.key] = { status: "confirmed", part_id: pp.part_id };
+    if (!current?.part_id || !selected.has(current.part_id)) continue;
+    const pp = state.project.parts?.find((item) => item.part_id === current.part_id);
+    if (pp?.confirmed && pp.type === slot.type)
+      decisions[slot.key] = { status: "confirmed", part_id: pp.part_id };
   }
   return decisions;
 }
 
 async function confirmParts() {
   await perform(async () => {
-    const decisions = decisionsForReview();
+    const ids = [...state.selectedProduction];
+    if (!ids.length)
+      throw Object.assign(new Error("Select at least one detected part to vectorize."), {
+        code: "PART_REVIEW_REQUIRED",
+        category: "parts",
+      });
+
+    const selectedParts = ids
+      .map((id) => state.project.parts?.find((item) => item.part_id === id))
+      .filter(Boolean);
+    if (selectedParts.length !== ids.length)
+      throw Object.assign(new Error("One selected part no longer exists."), {
+        code: "PART_NOT_FOUND",
+        category: "parts",
+      });
+
+    const needsReview = selectedParts.find((pp) => !pp.confirmed);
+    if (needsReview)
+      throw Object.assign(
+        new Error(`${needsReview.name} must be reviewed and confirmed before vectorization.`),
+        { code: "PART_REVIEW_REQUIRED", category: "parts", part_id: needsReview.part_id },
+      );
+
+    const missingDimensions = selectedParts.find(
+      (pp) =>
+        !["front_body", "back_body"].includes(pp.type) &&
+        (!pp.physical_width_mm || !pp.physical_height_mm),
+    );
+    if (missingDimensions)
+      throw Object.assign(
+        new Error(`Set real physical dimensions for ${missingDimensions.name} before vectorization.`),
+        {
+          code: "PART_DIMENSIONS_REQUIRED",
+          category: "parts",
+          part_id: missingDimensions.part_id,
+        },
+      );
+
+    const decisions = decisionsForSelection(ids);
     state.step = 3;
-    state.operation = "Starting Vector Production";
+    state.operation = `Vectorizing ${ids.length} Selected Part${ids.length === 1 ? "" : "s"}`;
     state.lastStageRequest = {
       name: "review/confirm",
-      params: { decisions: structuredClone(decisions) },
+      params: { part_ids: [...ids], decisions: structuredClone(decisions) },
     };
     const job = await post("/review/confirm", {
       project_id: state.project.project_id,
+      part_ids: ids,
       decisions,
     });
-    // The review endpoint has now committed the eight-slot decisions and the
-    // returned job is the real production job. A later retry_stage must resume
-    // production, not repeat the review transaction.
-    state.lastStageRequest = { name: "production", params: {} };
+    state.lastStageRequest = { name: "production", params: { part_ids: [...ids] } };
     state.job = job;
     render();
     try {
       await pollJob(job);
       state.step = ready() ? 5 : 4;
-      if (ready()) toast("Validation passed. Individual vector files are ready.");
+      if (ready()) {
+        state.selectionInitialized = false;
+        state.selectedExports = new Set(ids);
+        toast("Validation passed. Jumping to Export.");
+      }
     } catch (error) {
       const lastEvent = state.project?.events?.at?.(-1)?.event;
       state.step = lastEvent === "VALIDATION_FAILED" ? 4 : 3;
@@ -304,7 +330,6 @@ async function createMissing(slot) {
 
 async function leaveBlank(slot) {
   state.selectedSlot = slot;
-  let startProduction = false;
   await perform(async () => {
     state.operation = `Leaving ${label(slot)} Blank`;
     state.project = await post("/slots/update", {
@@ -313,20 +338,8 @@ async function leaveBlank(slot) {
       status: "blank",
     });
     await refresh();
-    try {
-      const decisions = decisionsForReview();
-      const ids = Object.values(decisions)
-        .filter((decision) => decision.status === "confirmed")
-        .map((decision) => decision.part_id);
-      startProduction =
-        ids.length > 0 &&
-        new Set(ids).size === ids.length &&
-        (state.project.parts || []).every((item) => ids.includes(item.part_id));
-    } catch {
-      startProduction = false;
-    }
+    toast("Slot left blank. It is not required for selective vectorization.");
   });
-  if (startProduction) await confirmParts();
 }
 
 function manualSlot(slot) {
@@ -393,6 +406,8 @@ async function removePart() {
       part_id: state.selected,
       action: "remove",
     });
+    state.selectedProduction.delete(state.selected);
+    state.selectedExports.delete(state.selected);
     state.selected = null;
     await refresh();
   });
@@ -843,19 +858,32 @@ async function handle(action, target) {
     case "report":
       showReport();
       break;
+    case "toggle-production-part": {
+      const id = target.dataset.id;
+      if (!id) break;
+      if (state.selectedProduction.has(id)) state.selectedProduction.delete(id);
+      else state.selectedProduction.add(id);
+      render();
+      break;
+    }
     case "download-selected":
       await exportSelected();
       break;
     case "download-pack":
       await exportPack();
       break;
-    case "select-all":
+    case "select-all": {
+      const validatedIds = state.project.validation?.selected_part_ids || [];
+      const available = validatedIds.length
+        ? validatedIds
+        : state.project.parts.map((item) => item.part_id);
       state.selectedExports =
-        state.selectedExports.size === state.project.parts.length
+        state.selectedExports.size === available.length
           ? new Set()
-          : new Set(state.project.parts.map((item) => item.part_id));
+          : new Set(available);
       render();
       break;
+    }
     case "format-toggle": {
       const format = target.dataset.format;
       if (state.downloadFormats.has(format)) state.downloadFormats.delete(format);
