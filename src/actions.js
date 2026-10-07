@@ -316,7 +316,7 @@ async function confirmParts() {
       }
     } catch (error) {
       const lastEvent = state.project?.events?.at?.(-1)?.event;
-      state.step = lastEvent === "VALIDATION_FAILED" ? 4 : 3;
+      state.step = lastEvent === "VALIDATION_FAILED" ? 4 : 2;
       throw error;
     }
   });
@@ -886,7 +886,8 @@ async function handle(action, target) {
         state.selectedProduction.delete(id);
         state.selectedExports.delete(id);
         if (state.selected === id) state.selected = null;
-        toast("Part excluded from the current production selection. The project part is preserved.");
+        state.step = 2;
+        toast("Part excluded from this production run. The project part is preserved and can be fixed later.");
         render();
       }
       break;
