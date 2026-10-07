@@ -2,18 +2,62 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { handle } from "../worker/index.js";
 import { session } from "../worker/session.js";
+import { seal } from "../worker/control/auth.js";
 
 const env = {
   ENGINE_ORIGIN: "https://engine.example",
   ENGINE_API_KEY: "test-only-" + "x".repeat(48),
   SESSION_SIGNING_KEY: "test-signing-" + "y".repeat(48),
 };
+const controlEnv = {
+  ...env,
+  SUPABASE_URL: "https://control.example",
+  SUPABASE_ANON_KEY: "test-anon-key",
+  SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+};
+const USER_ID = "11111111-1111-4111-8111-111111111111";
 const req = (path, init = {}) =>
   new Request("https://web.example" + path, init);
 
+async function authedReq(path, init = {}) {
+  const request = req(path, init);
+  const created = Date.now() / 1000;
+  const cookie = await seal(request, controlEnv, false, {
+    access: "test-access-token",
+    refresh: "test-refresh-token",
+    expires: created + 3600,
+    created,
+  });
+  const headers = new Headers(request.headers);
+  headers.set("cookie", cookie.split(";")[0]);
+  return new Request(request, { headers });
+}
+
+function authenticatedTransport(engineHandler) {
+  return async (request) => {
+    const url = new URL(request.url);
+    if (url.origin === "https://control.example") {
+      if (url.pathname === "/auth/v1/user")
+        return Response.json({ id: USER_ID, email: "user@example.test" });
+      if (url.pathname === "/rest/v1/revector_profiles")
+        return Response.json([
+          {
+            id: USER_ID,
+            auth_user_id: USER_ID,
+            status: "ACTIVE",
+            role: "USER",
+            profile_completed_at: "2026-01-01T00:00:00Z",
+          },
+        ]);
+      return Response.json({ error: "unexpected control request" }, { status: 404 });
+    }
+    return engineHandler(request);
+  };
+}
+
 test("proxy strips browser credentials and injects server-only secret and identity", async () => {
   const response = await handle(
-    req("/api/revector/projects", {
+    await authedReq("/api/revector/projects", {
       method: "POST",
       headers: {
         origin: "https://web.example",
@@ -23,8 +67,8 @@ test("proxy strips browser credentials and injects server-only secret and identi
       },
       body: JSON.stringify({ name: "Test", user_id: "victim" }),
     }),
-    env,
-    async (upstream) => {
+    controlEnv,
+    authenticatedTransport(async (upstream) => {
       assert.equal(
         upstream.url,
         "https://engine.example/api/revector/projects",
@@ -33,20 +77,19 @@ test("proxy strips browser credentials and injects server-only secret and identi
         upstream.headers.get("authorization"),
         "Bearer " + env.ENGINE_API_KEY,
       );
-      assert.match(
+      assert.equal(
         upstream.headers.get("x-revector-user"),
-        /^anon_[a-f0-9]{32}$/,
+        "user_" + USER_ID,
       );
       assert.equal(
         (await upstream.json()).user_id,
         upstream.headers.get("x-revector-user"),
       );
       return Response.json({ project_id: "fixture-id" });
-    },
+    }),
   );
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("set-cookie"), /HttpOnly; SameSite=Lax/);
-  assert.match(response.headers.get("set-cookie"), /Secure/);
+  assert.equal(response.headers.get("set-cookie"), null);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.ok(!(await response.text()).includes(env.ENGINE_API_KEY));
 });
@@ -139,13 +182,13 @@ test("multipart upload stays streamed and forwarded engine failures remain failu
   form.append("project_id", "fixture-id");
   form.append("file", new Blob(["raster bytes"]), "input.png");
   const response = await handle(
-    req("/api/revector/upload", {
+    await authedReq("/api/revector/upload", {
       method: "POST",
       headers: { origin: "https://web.example" },
       body: form,
     }),
-    env,
-    async (upstream) => {
+    controlEnv,
+    authenticatedTransport(async (upstream) => {
       assert.match(
         upstream.headers.get("content-type"),
         /multipart\/form-data/,
@@ -156,7 +199,7 @@ test("multipart upload stays streamed and forwarded engine failures remain failu
         { error: { code: "SOURCE_REJECTED" } },
         { status: 422 },
       );
-    },
+    }),
   );
   assert.equal(response.status, 422);
   assert.equal((await response.json()).error.code, "SOURCE_REJECTED");
@@ -174,9 +217,9 @@ test("JSON commands are bounded even without Content-Length", async () => {
   assert.equal(
     (
       await handle(
-        req("/api/revector/projects", { ...init, body: "{bad" }),
-        env,
-        never,
+        await authedReq("/api/revector/projects", { ...init, body: "{bad" }),
+        controlEnv,
+        authenticatedTransport(never),
       )
     ).status,
     400,
@@ -184,12 +227,12 @@ test("JSON commands are bounded even without Content-Length", async () => {
   assert.equal(
     (
       await handle(
-        req("/api/revector/projects", {
+        await authedReq("/api/revector/projects", {
           ...init,
           body: "x".repeat(1024 * 1024 + 1),
         }),
-        env,
-        never,
+        controlEnv,
+        authenticatedTransport(never),
       )
     ).status,
     413,
@@ -198,17 +241,17 @@ test("JSON commands are bounded even without Content-Length", async () => {
 
 test("protected SVG artifact sandbox policy is preserved", async () => {
   const response = await handle(
-    req(
+    await authedReq(
       "/api/revector/projects/11111111-1111-1111-1111-111111111111/artifacts/parts/part_fixture/optimized.svg",
     ),
-    env,
-    async () =>
+    controlEnv,
+    authenticatedTransport(async () =>
       new Response("<svg/>", {
         headers: {
           "content-security-policy": "sandbox; default-src 'none'",
           "content-type": "image/svg+xml",
         },
-      }),
+      })),
   );
   assert.equal(
     response.headers.get("content-security-policy"),
@@ -246,17 +289,21 @@ test("approved engine orchestration and assistant routes are allowlisted through
         project_id: "11111111-1111-1111-1111-111111111111",
       });
     }
-    const response = await handle(req(path, init), env, async (upstream) => {
+    const response = await handle(
+      await authedReq(path, init),
+      controlEnv,
+      authenticatedTransport(async (upstream) => {
       assert.equal(
         upstream.headers.get("authorization"),
         "Bearer " + env.ENGINE_API_KEY,
       );
-      assert.match(
+      assert.equal(
         upstream.headers.get("x-revector-user"),
-        /^anon_[a-f0-9]{32}$/,
+        "user_" + USER_ID,
       );
       return Response.json({ proxied: true });
-    });
+    }),
+    );
     assert.equal(response.status, 200, method + " " + path);
   }
 });
