@@ -2181,16 +2181,16 @@ function formatSupport(format) {
     };
   if (format === "pdf")
     return {
-      enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages),
-      note: deps.inkscape && deps.pdfinfo && deps.pdfimages
-        ? "Validated editable PDF"
-        : "Requires Inkscape + Poppler validation",
+      enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript),
+      note: deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript
+        ? "CMYK vector PDF with physical page-size validation"
+        : "Requires Inkscape + Poppler + Ghostscript",
     };
   if (format === "eps")
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript),
       note: deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript
-        ? "Validated Illustrator-compatible EPS"
+        ? "CMYK EPSF 3.0 / PostScript Level 2"
         : "Requires Inkscape + Poppler + Ghostscript",
     };
   return { enabled: false, note: "Native AI export is unavailable" };
