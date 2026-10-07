@@ -1558,36 +1558,36 @@ function detectPartsSection() {
 function vectorSelectionPanel() {
   const parts = state.project?.parts || [];
   const selectedCount = state.selectedProduction.size;
-  return \`<section class="card stack vector-selection-panel">
+  return `<section class="card stack vector-selection-panel">
     <div class="row between">
       <div>
         <div class="section-kicker">Selective Production</div>
         <h2>Select Parts to Vectorize</h2>
         <p class="small muted">No eight-part confirmation is required. Select one, two, or any number of detected components.</p>
       </div>
-      \${badge(\`\${selectedCount} Selected\`, selectedCount ? "success" : "neutral")}
+      ${badge(`${selectedCount} Selected`, selectedCount ? "success" : "neutral")}
     </div>
     <div class="download-parts">
-      \${parts.map((pp) => {
+      ${parts.map((pp) => {
         const selected = state.selectedProduction.has(pp.part_id);
         const body = ["front_body", "back_body"].includes(pp.type);
         const sized = body || Boolean(pp.physical_width_mm && pp.physical_height_mm);
-        return \`<label class="download-part \${selected ? "selected" : ""}">
-          <input type="checkbox" data-action="toggle-production-part" data-id="\${pp.part_id}" \${selected ? "checked" : ""}>
-          <div class="download-thumb">\${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
+        return `<label class="download-part ${selected ? "selected" : ""}">
+          <input type="checkbox" data-action="toggle-production-part" data-id="${pp.part_id}" ${selected ? "checked" : ""}>
+          <div class="download-thumb">${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
           <span>
-            <strong>\${escape(pp.name)}</strong>
-            <small>\${escape(body ? "558.8 × 787.4 mm client body size" : dimensions(pp))}</small>
+            <strong>${escape(pp.name)}</strong>
+            <small>${escape(body ? "558.8 × 787.4 mm client body size" : dimensions(pp))}</small>
           </span>
-          \${pp.confirmed
+          ${pp.confirmed
             ? sized
               ? badge("Ready", "success")
               : badge("Set Size", "warning")
             : badge("Review", "warning")}
-        </label>\`;
+        </label>`;
       }).join("")}
     </div>
-  </section>\`;
+  </section>`;
 }
 
 function detectBottomBar() {
@@ -1606,16 +1606,16 @@ function detectBottomBar() {
     ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(state.job?.process_event?.event);
   const readyForProduction = reviewReady();
 
-  return \`<section class="detect-bottom-bar \${readyForProduction ? "ready" : active ? "processing" : ""}">
-    <span class="detect-bottom-icon">\${active ? '<span class="spinner"></span>' : readyForProduction ? icon("check") : icon("refresh")}</span>
+  return `<section class="detect-bottom-bar ${readyForProduction ? "ready" : active ? "processing" : ""}">
+    <span class="detect-bottom-icon">${active ? '<span class="spinner"></span>' : readyForProduction ? icon("check") : icon("refresh")}</span>
     <div class="detect-bottom-copy">
-      <strong>\${active ? "Detecting production components..." : readyForProduction ? "Selected parts are ready for vectorization" : "Select and confirm only the parts you want to vectorize"}</strong>
-      <small>\${active ? escape(processEventLabel(state.job?.process_event)) : \`\${total} detected • \${selected.length} selected • \${confirmed} confirmed • \${sized} sized\`}</small>
+      <strong>${active ? "Detecting production components..." : readyForProduction ? "Selected parts are ready for vectorization" : "Select and confirm only the parts you want to vectorize"}</strong>
+      <small>${active ? escape(processEventLabel(state.job?.process_event)) : `${total} detected • ${selected.length} selected • ${confirmed} confirmed • ${sized} sized`}</small>
     </div>
-    <div class="detect-bottom-progress \${active ? "running" : readyForProduction ? "complete" : ""}"><span></span></div>
-    <span class="detect-bottom-step">\${readyForProduction ? "Ready" : "Selective"}</span>
-    \${btn(
-      icon("spark") + \` Vectorize Selected (\${selected.length}) \` + icon("chevron"),
+    <div class="detect-bottom-progress ${active ? "running" : readyForProduction ? "complete" : ""}"><span></span></div>
+    <span class="detect-bottom-step">${readyForProduction ? "Ready" : "Selective"}</span>
+    ${btn(
+      icon("spark") + ` Vectorize Selected (${selected.length}) ` + icon("chevron"),
       "confirm-parts",
       "detect-next-button",
       !readyForProduction || Boolean(state.draw),
@@ -1623,7 +1623,7 @@ function detectBottomBar() {
         ? ""
         : 'title="Select at least one part, confirm it, and set physical dimensions for non-body parts"',
     )}
-  </section>\`;
+  </section>`;
 }
 
 function definitionMain() {
@@ -1655,16 +1655,16 @@ function detectPartEditor(pp, matchingSlot) {
   const isBody = ["front_body", "back_body"].includes(pp.type);
   const width = isBody ? DEFAULT_PART_DIMENSIONS.widthMm : (pp.physical_width_mm ?? "");
   const height = isBody ? DEFAULT_PART_DIMENSIONS.heightMm : (pp.physical_height_mm ?? "");
-  return \`<form id="part-form" class="detect-part-form">
+  return `<form id="part-form" class="detect-part-form">
     <div class="detect-part-edit-title"><strong>Production Details</strong><small>Saved to the real engine part record.</small></div>
-    \${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
+    ${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
     <label>Category
-      <select name="part-type" \${state.busy || pp.locked ? "disabled" : ""}>
-        \${types.map((type) => \`<option value="\${type}" \${pp.type === type ? "selected" : ""}>\${escape(label(type))}</option>\`).join("")}
+      <select name="part-type" ${state.busy || pp.locked ? "disabled" : ""}>
+        ${types.map((type) => `<option value="${type}" ${pp.type === type ? "selected" : ""}>${escape(label(type))}</option>`).join("")}
       </select>
     </label>
     <div class="two-fields">
-      \${field(
+      ${field(
         "Width (mm)",
         "part-width",
         width,
@@ -1673,7 +1673,7 @@ function detectPartEditor(pp, matchingSlot) {
           ? 'min="0.1" max="10000" step="0.1" readonly'
           : 'min="0.1" max="10000" step="0.1" required',
       )}
-      \${field(
+      ${field(
         "Height (mm)",
         "part-height",
         height,
@@ -1683,15 +1683,15 @@ function detectPartEditor(pp, matchingSlot) {
           : 'min="0.1" max="10000" step="0.1" required',
       )}
     </div>
-    <p class="small muted">\${isBody
-      ? \`Client-locked Front/Back body size: \${DEFAULT_PART_DIMENSIONS.widthMm} × \${DEFAULT_PART_DIMENSIONS.heightMm} mm (\${DEFAULT_PART_DIMENSIONS.chestIn}" × \${DEFAULT_PART_DIMENSIONS.lengthIn}").\`
+    <p class="small muted">${isBody
+      ? `Client-locked Front/Back body size: ${DEFAULT_PART_DIMENSIONS.widthMm} × ${DEFAULT_PART_DIMENSIONS.heightMm} mm (${DEFAULT_PART_DIMENSIONS.chestIn}" × ${DEFAULT_PART_DIMENSIONS.lengthIn}").`
       : "Use the real physical bounding-box size for this component. ReVector preserves its vector geometry instead of forcing the body size."}</p>
-    <input type="hidden" name="part-bleed" value="\${escape(pp.bleed_mm || 0)}">
-    <input type="hidden" name="part-safe" value="\${escape(pp.safe_zone_mm || 0)}">
-    \${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
-    \${btn(icon("pen") + " Redraw Boundary", "draw-update", "quiet full-width", pp.locked)}
-    \${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
-  </form>\`;
+    <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
+    <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
+    ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
+    ${btn(icon("pen") + " Redraw Boundary", "draw-update", "quiet full-width", pp.locked)}
+    ${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
+  </form>`;
 }
 
 function detectSelectedPartCard() {
