@@ -756,6 +756,12 @@ async function handle(action, target) {
     case "exclude-failed":
       await excludeFailedPart(target.dataset.id);
       break;
+    case "review-failed-part":
+      state.selected = target.dataset.id || state.selected;
+      state.step = 2;
+      state.shape = null;
+      render();
+      break;
     case "create-missing":
       await createMissing(target.dataset.slot);
       break;
