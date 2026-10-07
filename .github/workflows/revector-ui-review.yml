@@ -53,11 +53,11 @@ jobs:
     steps:
       - name: Checkout web review branch
         uses: actions/checkout@v4
-      - name: Checkout approved engine commit read-only
+      - name: Checkout matching engine commit read-only
         uses: actions/checkout@v4
         with:
           repository: nafiulnahid17/RevectorAI-Tool
-          ref: 699ac010ad73c6eb5f8bf4b932f9cd5952879aff
+          ref: aab4b17e37a977e0b7c490e0797eaff294461091
           path: engine
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -80,12 +80,12 @@ jobs:
           python -m venv engine/.venv
           engine/.venv/bin/pip install --upgrade pip
           (cd engine && .venv/bin/pip install -r requirements.txt)
-      - name: Verify approved engine regression suite
+      - name: Verify matching engine regression suite
         working-directory: engine
         run: .venv/bin/pytest
       - name: Build web workspace
         run: npm run build
-      - name: Start approved engine and secured local Worker
+      - name: Start matching engine and secured local Worker
         env:
           REVECTOR_ALLOW_UNAUTHENTICATED: "false"
           REVECTOR_DATA_DIR: ${{ runner.temp }}/revector-ui-review
