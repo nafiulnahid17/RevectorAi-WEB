@@ -311,8 +311,29 @@ async function excludeFailedPart(partId) {
     render();
     return;
   }
-  toast("Failed part excluded from this production set. Revalidating the remaining selected parts.");
-  await confirmParts();
+
+  const reusable = remaining.filter((id) => {
+    const pp = state.project?.parts?.find((item) => item.part_id === id);
+    return Boolean(pp?.confirmed && pp?.vector && pp?.cache?.optimize && !pp?.error);
+  });
+  if (reusable.length !== remaining.length) {
+    toast("Failed part excluded. A remaining part still needs vector recovery before validation.");
+    state.step = 3;
+    render();
+    return;
+  }
+
+  await perform(async () => {
+    state.step = 4;
+    state.operation = `Revalidating Remaining Parts (${remaining.length})`;
+    state.lastStageRequest = { name: "compose", params: { part_ids: [...remaining] } };
+    await stage("compose", { part_ids: remaining });
+    state.lastStageRequest = { name: "validate", params: { part_ids: [...remaining] } };
+    await stage("validate", { part_ids: remaining });
+    await refresh();
+    state.step = ready() ? 5 : 4;
+    if (ready()) toast("Failed part excluded. Remaining validated parts are ready for Export.");
+  });
 }
 
 
