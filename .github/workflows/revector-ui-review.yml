@@ -48,6 +48,7 @@ jobs:
 
   engine-browser:
     needs: frontend
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
