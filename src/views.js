@@ -1286,7 +1286,7 @@ function reviewReady() {
   const parts = state.project?.parts || [];
   const byId = new Map(parts.map((item) => [item.part_id, item]));
   const ids = [...state.selectedExports].filter((id) => byId.has(id));
-  return ids.length > 0 && ids.every((id) => byId.get(id)?.confirmed === true);
+  return (\n    ids.length > 0 &&\n    ids.every((id) => {\n      const pp = byId.get(id);\n      return pp?.source === "engine_refined" || pp?.confirmed === true;\n    })\n  );
 }
 
 function detectSlotDefinitions() {
@@ -1349,7 +1349,7 @@ function detectStatusCounts() {
   return {
     detected: parts.length,
     selected: selected.length,
-    reviewed: selected.filter((pp) => pp.confirmed).length,
+    reviewed: selected.filter((pp) => pp.source === "engine_refined" || pp.confirmed).length,
     uncertain: parts.filter((pp) => pp.type === "unknown" || uncertainSlotIds.has(pp.part_id)).length,
     missing: detectSlotDefinitions().filter((def) => slotState(def.key).status === "missing").length,
     blank: detectSlotDefinitions().filter((def) => slotState(def.key).status === "blank").length,
@@ -1555,7 +1555,7 @@ function detectPartsSection() {
               <div class="download-thumb">${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
               <span><strong>${escape(pp.name)}</strong><small>${escape(label(pp.type))} • ${escape(dimensions(pp))}</small></span>
             </button>
-            ${pp.confirmed ? badge("Reviewed", "success") : badge("Review Required", "warning")}
+            ${pp.source === "engine_refined" ? badge("Auto Ready", "success") : pp.confirmed ? badge("Confirmed", "success") : badge("Confirmation Required", "warning")}
           </div>`;
         })
         .join("")}
@@ -1588,7 +1588,7 @@ function detectBottomBar() {
         : readyForProduction
           ? `${selectedCount} selected part${selectedCount === 1 ? "" : "s"} ready for vectorization`
           : needsConfirmation
-            ? "Review every selected part before vectorization"
+            ? "Confirm reconstructed/manual selected parts before vectorization"
             : selectedCount
               ? "Review the selected production parts"
               : "Select at least one detected part to vectorize"}</strong>
@@ -1603,7 +1603,7 @@ function detectBottomBar() {
       "confirm-parts",
       "detect-next-button",
       !readyForProduction || Boolean(state.draw),
-      readyForProduction ? "" : 'title="Select one or more parts and confirm only those selected parts"',
+      readyForProduction ? "" : 'title="Select one or more parts. Engine-detected parts are auto-ready; only reconstructed/manual parts require confirmation."',
     )}
   </section>`;
 }
@@ -1673,7 +1673,7 @@ function detectPartEditor(pp, matchingSlot) {
       false,
       `data-id="${pp.part_id}"`,
     )}
-    ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
+    ${pp.source === "engine_refined" ? btn(icon("check") + " Save Production Details", "save-part", "detect-inspector-primary") : pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
     ${btn(icon("pen") + " Redraw Boundary", "draw-update", "quiet full-width", pp.locked)}
     ${btn("Remove Part", "remove-part", "quiet danger full-width", pp.locked)}
   </form>`;
