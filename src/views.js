@@ -1284,18 +1284,15 @@ function unassignedParts() {
 
 function reviewReady() {
   const p = state.project;
-  if (!p?.slots) return false;
-  const ids = [];
-  for (const def of expectedSlots) {
-    const slot = p.slots[def.key];
-    if (!slot) return false;
-    if (slot.status === "blank") continue;
-    const pp = p.parts.find((item) => item.part_id === slot.part_id);
-    if (!pp || !pp.confirmed || pp.type !== def.type) return false;
-    ids.push(pp.part_id);
-  }
-  if (!ids.length || new Set(ids).size !== ids.length) return false;
-  return p.parts.every((pp) => ids.includes(pp.part_id));
+  const ids = [...state.selectedProduction];
+  if (!p?.parts?.length || !ids.length) return false;
+  const byId = new Map(p.parts.map((pp) => [pp.part_id, pp]));
+  return ids.every((id) => {
+    const pp = byId.get(id);
+    if (!pp?.confirmed) return false;
+    if (["front_body", "back_body"].includes(pp.type)) return true;
+    return Boolean(pp.physical_width_mm && pp.physical_height_mm);
+  });
 }
 
 function detectSlotDefinitions() {
@@ -1528,7 +1525,7 @@ function detectExtraComponents() {
   if (!extras.length) return "";
   return `<section class="detect-extras">
     <div class="row between">
-      <div><h3>Additional Components Requiring Classification</h3><p class="small muted">These are real engine components that are not assigned to one of the eight fixed production slots.</p></div>
+      <div><h3>Additional Detected Components</h3><p class="small muted">These are real engine components outside the standard reference slots. They can still be selected and vectorized normally.</p></div>
       ${badge(extras.length, "warning")}
     </div>
     <div class="compact-parts">
@@ -1544,7 +1541,7 @@ function detectPartsSection() {
   const counts = detectStatusCounts();
   return `<section class="detect-parts-section">
     <div class="detect-parts-head">
-      <h2>Detected Jersey Parts (8)</h2>
+      <h2>Standard Reference Slots <span class="small muted">(${state.project?.parts?.length || 0} total components detected)</span></h2>
       <div class="detect-parts-legend">
         <span class="detected"><i></i>Detected (${counts.detected})</span>
         <span class="uncertain"><i></i>Unclear (${counts.uncertain})</span>
@@ -1558,30 +1555,74 @@ function detectPartsSection() {
   </section>`;
 }
 
+function vectorSelectionPanel() {
+  const parts = state.project?.parts || [];
+  const selectedCount = state.selectedProduction.size;
+  return `<section class="card stack vector-selection-panel">
+    <div class="row between">
+      <div>
+        <div class="section-kicker">Selective Production</div>
+        <h2>Select Parts to Vectorize</h2>
+        <p class="small muted">No eight-part confirmation is required. Select one, two, or any number of detected components.</p>
+      </div>
+      ${badge(`${selectedCount} Selected`, selectedCount ? "success" : "neutral")}
+    </div>
+    <div class="download-parts">
+      ${parts.map((pp) => {
+        const selected = state.selectedProduction.has(pp.part_id);
+        const body = ["front_body", "back_body"].includes(pp.type);
+        const sized = body || Boolean(pp.physical_width_mm && pp.physical_height_mm);
+        return `<label class="download-part ${selected ? "selected" : ""}">
+          <input type="checkbox" data-action="toggle-production-part" data-id="${pp.part_id}" ${selected ? "checked" : ""} ${state.busy ? "disabled" : ""}>
+          <div class="download-thumb">${pp.corrected_crop ? picture(pp.corrected_crop, pp.name) : icon("file")}</div>
+          <span>
+            <strong>${escape(pp.name)}</strong>
+            <small>${escape(body ? "558.8 × 787.4 mm client body size" : dimensions(pp))}</small>
+          </span>
+          ${pp.confirmed
+            ? sized
+              ? badge("Ready", "success")
+              : badge("Set Size", "warning")
+            : badge("Review", "warning")}
+        </label>`;
+      }).join("")}
+    </div>
+  </section>`;
+}
+
 function detectBottomBar() {
-  const counts = detectStatusCounts();
-  const resolved = counts.detected + counts.blank;
-  const reviewed = detectSlotDefinitions().filter((def) => {
-    const slot = slotState(def.key);
-    if (slot.status === "blank") return true;
-    const pp = partForSlot(def.key);
-    return Boolean(pp?.confirmed && pp.type === def.type);
-  }).length;
+  const total = state.project?.parts?.length || 0;
+  const selected = [...state.selectedProduction]
+    .map((id) => state.project?.parts?.find((pp) => pp.part_id === id))
+    .filter(Boolean);
+  const confirmed = selected.filter((pp) => pp.confirmed).length;
+  const sized = selected.filter(
+    (pp) =>
+      ["front_body", "back_body"].includes(pp.type) ||
+      (pp.physical_width_mm && pp.physical_height_mm),
+  ).length;
   const active =
     state.busy &&
     ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(state.job?.process_event?.event);
   const readyForProduction = reviewReady();
-  const needsConfirmation = !active && resolved === 8 && reviewed < 8;
 
   return `<section class="detect-bottom-bar ${readyForProduction ? "ready" : active ? "processing" : ""}">
     <span class="detect-bottom-icon">${active ? '<span class="spinner"></span>' : readyForProduction ? icon("check") : icon("refresh")}</span>
     <div class="detect-bottom-copy">
-      <strong>${active ? "Auto-processing parts for vectorization..." : readyForProduction ? "Part review ready for vectorization" : needsConfirmation ? "Confirm each detected part before vectorization" : "Review production parts before vectorization"}</strong>
-      <small>${active ? escape(processEventLabel(state.job?.process_event)) : `${resolved} of 8 slots detected • ${reviewed} of 8 reviewed • ${counts.uncertain} unclear • ${counts.missing} missing`}</small>
+      <strong>${active ? "Detecting production components..." : readyForProduction ? "Selected parts are ready for vectorization" : "Select and confirm only the parts you want to vectorize"}</strong>
+      <small>${active ? escape(processEventLabel(state.job?.process_event)) : `${total} detected • ${selected.length} selected • ${confirmed} confirmed • ${sized} sized`}</small>
     </div>
     <div class="detect-bottom-progress ${active ? "running" : readyForProduction ? "complete" : ""}"><span></span></div>
-    <span class="detect-bottom-step">${readyForProduction ? "Ready" : "Step 5 of 8"}</span>
-    ${btn(icon("spark") + " Next: Vectorize " + icon("chevron"), "confirm-parts", "detect-next-button", !readyForProduction || Boolean(state.draw), readyForProduction ? "" : 'title="Review and confirm every detected production part before vectorization"')}
+    <span class="detect-bottom-step">${readyForProduction ? "Ready" : "Selective"}</span>
+    ${btn(
+      icon("spark") + ` Vectorize Selected (${selected.length}) ` + icon("chevron"),
+      "confirm-parts",
+      "detect-next-button",
+      !readyForProduction || Boolean(state.draw),
+      readyForProduction
+        ? ""
+        : 'title="Select at least one part, confirm it, and set physical dimensions for non-body parts"',
+    )}
   </section>`;
 }
 
@@ -1595,21 +1636,25 @@ function definitionMain() {
         <span class="detect-step-label">Step 5 of 8</span>
         <h1>Detect Jersey Parts</h1>
         <p>${aiAssisted
-          ? "AI suggestions and ReVector Engine boundaries are mapped into the fixed 8-part production review before vectorization."
-          : "ReVector Engine maps real detected geometry into the fixed 8-part production review before vectorization. No AI status is claimed unless a provider actually ran."}</p>
+          ? "AI suggests semantic component labels while ReVector Engine keeps real boundaries. The detected component count is dynamic, not limited to eight."
+          : "ReVector Engine keeps every isolated component it can establish. The detected component count is dynamic, and you choose which parts to vectorize."}</p>
       </div>
-      <div class="detect-info-note">${icon("alert")}<span>Exact crop and boundary geometry comes from the engine. Missing or unclear slots remain visible for manual review.</span></div>
+      <div class="detect-info-note">${icon("alert")}<span>Standard slots are optional classification aids. Extra detected components remain available for selective production.</span></div>
     </section>
 
     ${detectPatternPreview()}
     ${detectBoundaryEditor()}
     ${detectPartsSection()}
     ${detectExtraComponents()}
+    ${vectorSelectionPanel()}
     ${detectBottomBar()}
   </main>`;
 }
 
 function detectPartEditor(pp, matchingSlot) {
+  const isBody = ["front_body", "back_body"].includes(pp.type);
+  const width = isBody ? DEFAULT_PART_DIMENSIONS.widthMm : (pp.physical_width_mm ?? "");
+  const height = isBody ? DEFAULT_PART_DIMENSIONS.heightMm : (pp.physical_height_mm ?? "");
   return `<form id="part-form" class="detect-part-form">
     <div class="detect-part-edit-title"><strong>Production Details</strong><small>Saved to the real engine part record.</small></div>
     ${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
@@ -1620,21 +1665,27 @@ function detectPartEditor(pp, matchingSlot) {
     </label>
     <div class="two-fields">
       ${field(
-        "Chest / Width (mm)",
+        "Width (mm)",
         "part-width",
-        pp.physical_width_mm ?? DEFAULT_PART_DIMENSIONS.widthMm,
+        width,
         "number",
-        'min="0.1" max="10000" step="0.1"',
+        isBody
+          ? 'min="0.1" max="10000" step="0.1" readonly'
+          : 'min="0.1" max="10000" step="0.1" required',
       )}
       ${field(
-        "Length / Height (mm)",
+        "Height (mm)",
         "part-height",
-        pp.physical_height_mm ?? DEFAULT_PART_DIMENSIONS.heightMm,
+        height,
         "number",
-        'min="0.1" max="10000" step="0.1"',
+        isBody
+          ? 'min="0.1" max="10000" step="0.1" readonly'
+          : 'min="0.1" max="10000" step="0.1" required',
       )}
     </div>
-    <p class="small muted">Client default box: ${DEFAULT_PART_DIMENSIONS.chestCm} cm × ${DEFAULT_PART_DIMENSIONS.lengthCm} cm (${DEFAULT_PART_DIMENSIONS.chestIn}" × ${DEFAULT_PART_DIMENSIONS.lengthIn}"). Custom values can still be entered before confirmation.</p>
+    <p class="small muted">${isBody
+      ? `Client-locked Front/Back body size: ${DEFAULT_PART_DIMENSIONS.widthMm} × ${DEFAULT_PART_DIMENSIONS.heightMm} mm (${DEFAULT_PART_DIMENSIONS.chestIn}" × ${DEFAULT_PART_DIMENSIONS.lengthIn}").`
+      : "Use the real physical bounding-box size for this component. ReVector preserves its vector geometry instead of forcing the body size."}</p>
     <input type="hidden" name="part-bleed" value="${escape(pp.bleed_mm || 0)}">
     <input type="hidden" name="part-safe" value="${escape(pp.safe_zone_mm || 0)}">
     ${pp.confirmed ? badge("Confirmed", "success") : btn(icon("check") + " Save & Confirm Part", "save-part", "detect-inspector-primary")}
@@ -1748,7 +1799,7 @@ function partInspector() {
       <div><div class="section-kicker">Selected Part</div><h2>${escape(pp.name)}</h2></div>
       ${badge(pp.confirmed ? "Confirmed" : "Needs Review", pp.confirmed ? "success" : "warning")}
     </div>
-    ${matchingSlot ? `<p class="small muted">Slot: ${escape(matchingSlot.label)}</p>` : '<p class="small muted">This component is not assigned to an eight-part slot yet.</p>'}
+    ${matchingSlot ? `<p class="small muted">Slot: ${escape(matchingSlot.label)}</p>` : '<p class="small muted">This component is outside the standard reference slots.</p>'}
     <form id="part-form" class="stack">
       ${field("Part Name", "part-name", pp.name, "text", 'maxlength="120" required')}
       <label>Category
@@ -2029,6 +2080,7 @@ function vectorMain() {
       <div class="row wrap">
         ${btn("Retry Failed Part", "recover-selected", "primary")}
         ${btn("Use Fallback Trace", "recover-selected-fallback", "quiet")}
+        ${btn("Exclude From Current Run", "exclude-selected-production", "quiet danger")}
       </div>
     </section>` : ""}
   </main>`;
@@ -2040,6 +2092,12 @@ function partValidation(pp) {
 function validationMain() {
   const v = state.project?.validation;
   const pass = ready();
+  const currentIds =
+    v?.selected_part_ids ||
+    state.project?.ai_metadata?.review?.selected_part_ids ||
+    [...state.selectedProduction];
+  const currentSet = new Set(currentIds || []);
+  const currentParts = (state.project?.parts || []).filter((pp) => currentSet.has(pp.part_id));
   return `<main class="main-column validation-main">
     <div class="validation-split">
       <section class="card stack">
@@ -2048,7 +2106,7 @@ function validationMain() {
           <h2>Vector Output</h2>
         </div>
         <div class="validation-parts">
-          ${(state.project?.parts || [])
+          ${currentParts
             .map((pp) => {
               const report = partValidation(pp);
               return `<button data-action="select-part" data-id="${pp.part_id}" class="validation-part ${state.selected === pp.part_id ? "active" : ""}">
@@ -2089,7 +2147,10 @@ function validationMain() {
             ${!pass && v
               ? `<div class="validation-recovery">
                   <p class="note warning">Download remains blocked until deterministic validation passes.</p>
-                  ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  <div class="row wrap">
+                    ${btn("Review / Change Part Selection", "return-part-selection", "quiet")}
+                    ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  </div>
                 </div>`
               : ""}`}
       </section>
@@ -2109,14 +2170,14 @@ function formatSupport(format) {
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages),
       note: deps.inkscape && deps.pdfinfo && deps.pdfimages
-        ? "Validated editable PDF"
+        ? "CMYK vector-preserving PDF"
         : "Requires Inkscape + Poppler validation",
     };
   if (format === "eps")
     return {
       enabled: Boolean(deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript),
       note: deps.inkscape && deps.pdfinfo && deps.pdfimages && deps.ghostscript
-        ? "Validated Illustrator-compatible EPS"
+        ? "CMYK EPSF 3.0 / PostScript Level 2"
         : "Requires Inkscape + Poppler + Ghostscript",
     };
   return { enabled: false, note: "Native AI export is unavailable" };
@@ -2124,6 +2185,9 @@ function formatSupport(format) {
 
 function downloadMain() {
   const p = state.project;
+  const validatedIds = p.validation?.selected_part_ids || [];
+  const validatedSet = new Set(validatedIds);
+  const validatedParts = (p.parts || []).filter((pp) => validatedSet.has(pp.part_id));
   const selectedCount = state.selectedExports.size;
   return `<main class="main-column download-main">
     <section class="card stack">
@@ -2133,10 +2197,10 @@ function downloadMain() {
           <h2>Download</h2>
           <p class="small muted">ReVector exports parts only. It does not expose an assembled or master production pattern.</p>
         </div>
-        ${btn(selectedCount === p.parts.length ? "Deselect All" : "Select All", "select-all", "quiet")}
+        ${btn(selectedCount === validatedParts.length ? "Deselect All" : "Select All", "select-all", "quiet")}
       </div>
       <div class="download-parts">
-        ${p.parts
+        ${validatedParts
           .map((pp) => {
             const report = partValidation(pp);
             const validated = ready() && report?.status === "PASS";
@@ -2154,7 +2218,7 @@ function downloadMain() {
     <section class="card stack">
       <div>
         <h2>Export Formats</h2>
-        <p class="small muted">SVG/EPS/PDF preserve vector geometry. PNG is generated as a 300 DPI print proof at the confirmed physical part size. Native Adobe .AI is not generated or renamed from another format.</p>
+        <p class="small muted">SVG is resolution-independent editable geometry. EPS is normalized to CMYK, EPSF 3.0 / PostScript Level 2 for the client handoff. PDF is CMYK vector-preserving. PNG is only a 300 DPI raster proof. Native Adobe .AI is not faked.</p>
       </div>
       <div class="formats export-formats">
         ${["svg", "eps", "pdf", "png", "ai"]
@@ -2352,10 +2416,11 @@ function footer() {
     message = "A real engine job is active. Safe workspace inspection remains available.";
     action = state.job?.job_id ? btn("Cancel Job", "cancel", "quiet danger") : "";
   } else if (state.step === 2) {
+    const count = state.selectedProduction.size;
     message = reviewReady()
-      ? "All eight slots are resolved. Confirming starts vector production automatically."
-      : "Resolve every slot and confirm real detected parts before production.";
-    action = btn("Confirm Parts", "confirm-parts", "primary", !reviewReady());
+      ? `${count} selected part${count === 1 ? "" : "s"} ready for vectorization.`
+      : "Select one or more parts, confirm them, and set real dimensions for non-body parts.";
+    action = btn(`Vectorize Selected (${count})`, "confirm-parts", "primary", !reviewReady());
   } else if (state.step === 4) {
     message = ready()
       ? "Deterministic validation passed."
