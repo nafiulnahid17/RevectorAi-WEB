@@ -182,7 +182,13 @@ async function refresh() {
     [...state.selectedExports].filter((id) => ids.has(id)),
   );
   if (!state.selectionInitialized && ids.size) {
-    for (const id of ids) state.selectedExports.add(id);
+    // Detection starts with no implicit production selection. A restored
+    // validated project, however, reselects only the exact passing production
+    // set so Export remains consistent after reload.
+    const restored = state.project?.validation?.selected_part_ids || [];
+    for (const id of restored) {
+      if (ids.has(id)) state.selectedExports.add(id);
+    }
     state.selectionInitialized = true;
   }
 
