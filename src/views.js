@@ -1463,12 +1463,12 @@ function detectStatusPanel() {
       <div class="detect-status-ring ${reviewState ? "complete" : active ? "running" : ""}">
         <span>${reviewState ? icon("check") : active ? "LIVE" : "—"}</span>
       </div>
-      <div><h3>${escape(title)}</h3><p>${active ? escape(processEventLabel(state.job?.process_event)) : reviewState ? "Review the real eight-slot production state below." : "No fabricated progress percentage is shown."}</p></div>
+      <div><h3>${escape(title)}</h3><p>${active ? escape(processEventLabel(state.job?.process_event)) : reviewState ? "Review the real detected production components below." : "No fabricated progress percentage is shown."}</p></div>
     </div>
     <div class="detect-status-list">
       ${detectStatusRow("Analyze garment structure", Boolean(p?.analysis && Object.keys(p.analysis).length), current === "ANALYZING_ARTWORK")}
       ${detectStatusRow("Detect panel boundaries", Boolean(Object.keys(detection).length || partsExist), ["IDENTIFYING_PARTS", "REFINING_PART_BOUNDARIES"].includes(current) && !partsExist)}
-      ${detectStatusRow("Match artwork to production slots", assigned > 0, current === "IDENTIFYING_PARTS")}
+      ${detectStatusRow("Match artwork to production components", assigned > 0, current === "IDENTIFYING_PARTS")}
       ${detectStatusRow("Prepare review state", reviewState, current === "REFINING_PART_BOUNDARIES")}
     </div>
   </section>`;
@@ -1948,7 +1948,7 @@ function vectorSelectedPartPanel() {
       <div class="vector-selected-thumb">${preview ? picture(preview, pp.name) : icon("file")}</div>
       <div>
         <strong>${escape(pp.name)}</strong>
-        <small>${index ? `Part ${index} of 8` : "Unassigned component"}</small>
+        <small>${index ? `Standard reference ${index}` : "Dynamic component"}</small>
         ${pp.error ? badge("Failed", "error") : vectorPartReady(pp) ? badge("Vector Ready", "success") : badge("Pending")}
       </div>
     </div>
@@ -2433,10 +2433,13 @@ function footer() {
     message = "A real engine job is active. Safe workspace inspection remains available.";
     action = state.job?.job_id ? btn("Cancel Job", "cancel", "quiet danger") : "";
   } else if (state.step === 2) {
+    const selectedCount = state.selectedExports.size;
     message = reviewReady()
-      ? "All eight slots are resolved. Confirming starts vector production automatically."
-      : "Resolve every slot and confirm real detected parts before production.";
-    action = btn("Confirm Parts", "confirm-parts", "primary", !reviewReady());
+      ? `${selectedCount} selected part${selectedCount === 1 ? "" : "s"} confirmed and ready for vectorization.`
+      : selectedCount
+        ? "Confirm each selected part before vectorization. Unselected parts do not block production."
+        : "Select at least one detected part to vectorize.";
+    action = btn(`Vectorize Selected (${selectedCount})`, "confirm-parts", "primary", !reviewReady());
   } else if (state.step === 4) {
     message = ready()
       ? "Deterministic validation passed."
