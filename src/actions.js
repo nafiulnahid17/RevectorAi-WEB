@@ -466,9 +466,11 @@ async function exportPack() {
         code: "VALIDATION_REQUIRED",
         category: "validation",
       });
+    const validatedIds = state.project.validation?.selected_part_ids || [];
     const ids = state.selectedExports.size
       ? [...state.selectedExports]
-      : state.project.parts.map((item) => item.part_id);
+      : [...validatedIds];
+    if (!ids.length) throw new Error("No validated parts are available for export.");
     const formats = chosenFormats();
     if (!formats.length) throw new Error("Select at least one supported format.");
     const result = await stage("export", {
