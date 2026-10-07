@@ -49,6 +49,13 @@ function authenticatedTransport(engineHandler) {
             profile_completed_at: "2026-01-01T00:00:00Z",
           },
         ]);
+      if (url.pathname === "/rest/v1/rpc/rv_reserve_operation")
+        return Response.json({
+          id: "22222222-2222-4222-8222-222222222222",
+          replayed: false,
+          reserved_credits: 0,
+        });
+      if (url.pathname.startsWith("/rest/v1/rpc/")) return Response.json({});
       return Response.json({ error: "unexpected control request" }, { status: 404 });
     }
     return engineHandler(request);
