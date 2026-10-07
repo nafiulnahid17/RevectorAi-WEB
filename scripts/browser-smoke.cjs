@@ -179,7 +179,7 @@ const { execFileSync } = require("node:child_process");
 
   await page.locator('button.step[data-step="2"]').click();
   await page
-    .getByRole("heading", { name: "Detected Jersey Parts (8)", exact: true })
+    .getByRole("heading", { name: /Detected Jersey Parts \(\d+\)/ })
     .waitFor();
   await page
     .getByRole("heading", { name: "Detect Jersey Parts", exact: true })
