@@ -234,8 +234,8 @@ const { execFileSync } = require("node:child_process");
   );
 
   const assignments = [
-    { name: "Front Body", type: "front_body", width: "520", height: "700" },
-    { name: "Back Body", type: "back_body", width: "520", height: "700" },
+    { name: "Front Body", type: "front_body" },
+    { name: "Back Body", type: "back_body" },
   ];
 
   for (const assignment of assignments) {
@@ -248,8 +248,6 @@ const { execFileSync } = require("node:child_process");
     await extras.first().click();
     await page.locator('[name="part-name"]').fill(assignment.name);
     await page.locator('[name="part-type"]').selectOption(assignment.type);
-    await page.locator('[name="part-width"]').fill(assignment.width);
-    await page.locator('[name="part-height"]').fill(assignment.height);
     await page
       .getByRole("button", { name: "Save & Confirm Part", exact: true })
       .click();
@@ -258,37 +256,25 @@ const { execFileSync } = require("node:child_process");
         document.querySelectorAll(".compact-parts button").length === expected,
       before - 1,
     );
+
+    // Select only the two client-requested production parts. Other detected
+    // components and unresolved standard slots must not block vectorization.
+    const selectForVector = page.getByRole("button", {
+      name: "Select for Vectorization",
+      exact: true,
+    });
+    await selectForVector.waitFor();
+    await selectForVector.click();
   }
 
-  extras = page.locator(".compact-parts button");
-  while ((await extras.count()) > 0) {
-    const before = await extras.count();
-    await extras.first().click();
-    await page
-      .getByRole("button", { name: "Remove Part", exact: true })
-      .click();
-    await page.waitForFunction(
-      (expected) =>
-        document.querySelectorAll(".compact-parts button").length === expected,
-      before - 1,
-    );
-    extras = page.locator(".compact-parts button");
-  }
-
-  let missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
-  while ((await missingSlots.count()) > 0) {
-    const before = await missingSlots.count();
-    await missingSlots.first().click();
-    const blankButton = page.locator('.detect-inspector [data-action="leave-blank"]');
-    await blankButton.waitFor();
-    await blankButton.click();
-    await page.waitForFunction(
-      (expected) =>
-        document.querySelectorAll(".detect-slot-card.missing .detect-slot-select").length === expected,
-      before - 1,
-    );
-    missingSlots = page.locator(".detect-slot-card.missing .detect-slot-select");
-  }
+  const productionSelection = page.locator(
+    '.dynamic-production-selection input[data-action="toggle-production-part"]:checked',
+  );
+  assert.equal(
+    await productionSelection.count(),
+    2,
+    "Exactly the two explicitly selected parts should enter production",
+  );
 
   await page.screenshot({
     path: path.join(out, "01-detected-parts-review.png"),
@@ -299,7 +285,7 @@ const { execFileSync } = require("node:child_process");
   await confirmButton.click();
 
   await page
-    .getByRole("heading", { name: "Download", exact: true })
+    .getByRole("heading", { name: "Export", exact: true })
     .waitFor({ timeout: 180000 });
 
   const finalProject = await (
@@ -309,6 +295,15 @@ const { execFileSync } = require("node:child_process");
   assert.equal(finalProject.validation.status, "PASS");
   assert.equal(finalProject.validation.embedded_rasters, 0);
   assert.ok(finalProject.validation.vector_paths > 0);
+  assert.equal(finalProject.validation.resolution_independent, true);
+  assert.equal(finalProject.validation.selected_part_ids.length, 2);
+  assert.equal(finalProject.validation.parts.length, 2);
+  for (const partType of ["front_body", "back_body"]) {
+    const part = finalProject.parts.find((item) => item.type === partType);
+    assert.ok(part, `${partType} should exist`);
+    assert.equal(part.physical_width_mm, 558.8);
+    assert.equal(part.physical_height_mm, 787.4);
+  }
 
   const voicesAfterValidation = await page.evaluate(() =>
     window.__revectorVoice.slice(),
@@ -391,7 +386,7 @@ const { execFileSync } = require("node:child_process");
 
   await page.locator('[data-action="navigate"][data-step="4"]').click();
   await page
-    .getByRole("heading", { name: "Validation Completed", exact: true })
+    .getByRole("heading", { name: "Validation Passed", exact: true })
     .waitFor();
   assert.equal(
     (await page.getByText("PASS", { exact: true }).count()) > 0,
@@ -400,7 +395,7 @@ const { execFileSync } = require("node:child_process");
   assert.equal(await page.getByText("Layers", { exact: true }).count(), 0);
 
   await page.locator('[data-action="navigate"][data-step="5"]').click();
-  await page.getByRole("heading", { name: "Download", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Export", exact: true }).waitFor();
 
   assert.equal(
     await page.getByRole("button", { name: /Download Selected Parts/ }).count(),
@@ -476,6 +471,10 @@ const { execFileSync } = require("node:child_process");
       2,
       "PDF must have no raster image rows",
     );
+    const epsHeader = (await fs.readFile(eps)).subarray(0, 16384).toString("latin1");
+    assert.match(epsHeader.split(/\r?\n/)[0], /EPSF-3\.0/);
+    assert.match(epsHeader, /%%LanguageLevel:\s*2/);
+    assert.match(epsHeader, /%%BoundingBox:/);
     execFileSync("gs", [
       "-q",
       "-dNOPAUSE",
@@ -501,7 +500,7 @@ const { execFileSync } = require("node:child_process");
     await page.locator('[data-format="eps"]').click();
     await page.locator('[data-format="pdf"]').click();
   }
-  await page.getByRole("button", { name: "Select All", exact: true }).click();
+  await page.getByRole("button", { name: "Select All Validated", exact: true }).click();
   const packPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Download Production Pack/ }).click();
   const pack = await packPromise;
