@@ -871,13 +871,26 @@ async function handle(action, target) {
     case "download-pack":
       await exportPack();
       break;
-    case "select-all":
+    case "select-all": {
+      const validated = validatedPartIds(state.project);
       state.selectedExports =
-        state.selectedExports.size === state.project.parts.length
+        state.selectedExports.size === validated.size
           ? new Set()
-          : new Set(state.project.parts.map((item) => item.part_id));
+          : new Set(validated);
       render();
       break;
+    }
+    case "exclude-production": {
+      const id = target.dataset.id;
+      if (id) {
+        state.selectedProduction.delete(id);
+        state.selectedExports.delete(id);
+        if (state.selected === id) state.selected = null;
+        toast("Part excluded from the current production selection. The project part is preserved.");
+        render();
+      }
+      break;
+    }
     case "format-toggle": {
       const format = target.dataset.format;
       if (state.downloadFormats.has(format)) state.downloadFormats.delete(format);
