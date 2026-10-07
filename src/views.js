@@ -2089,31 +2089,40 @@ function partValidation(pp) {
 function validationMain() {
   const v = state.project?.validation;
   const pass = ready();
+  const failed = Array.isArray(v?.failed_parts) ? v.failed_parts : [];
+  const validatedIds = new Set((v?.parts || []).map((item) => item.part_id));
+  const selectedIds = new Set(v?.selected_part_ids || [...state.selectedExports]);
+
   return `<main class="main-column validation-main">
     <div class="validation-split">
       <section class="card stack">
         <div>
-          <div class="section-kicker">Completed Vector Parts</div>
+          <div class="section-kicker">Selected Production Parts</div>
           <h2>Vector Output</h2>
+          <p class="small muted">Only the selected production set is validated. Unselected detected parts do not block export.</p>
         </div>
         <div class="validation-parts">
           ${(state.project?.parts || [])
+            .filter((pp) => selectedIds.has(pp.part_id) || validatedIds.has(pp.part_id) || failed.some((item) => item.part_id === pp.part_id))
             .map((pp) => {
               const report = partValidation(pp);
+              const failure = failed.find((item) => item.part_id === pp.part_id);
               return `<button data-action="select-part" data-id="${pp.part_id}" class="validation-part ${state.selected === pp.part_id ? "active" : ""}">
                 ${picture(pp.corrected_crop, pp.name)}
-                <span><strong>${escape(pp.name)}</strong><small>${report ? `${report.paths || 0} paths - ${report.rasters || 0} rasters` : "No validation result"}</small></span>
-                ${report?.status === "PASS" ? badge("PASS", "success") : pp.error ? badge("Failed", "error") : badge("Pending", "warning")}
+                <span><strong>${escape(pp.name)}</strong><small>${report ? `${report.paths || 0} paths • ${report.rasters || 0} rasters` : failure ? escape(failure.message || failure.error_code) : "Awaiting validation"}</small></span>
+                ${report?.status === "PASS" ? badge("PASS", "success") : failure ? badge("FAIL", "error") : badge("Pending", "warning")}
               </button>`;
             })
             .join("")}
         </div>
       </section>
+
       <section class="card stack validation-results">
         <div class="row between">
-          <div><div class="section-kicker">Deterministic Validation</div><h2>${state.busy ? "Validation Running" : pass ? "Validation Completed" : v ? "Validation Failed" : "Validation Pending"}</h2></div>
-          ${badge(pass ? "PASS" : v ? "FAIL" : "Pending", pass ? "success" : v ? "error" : "warning")}
+          <div><div class="section-kicker">Deterministic Validation</div><h2>${state.busy ? "Validation Running" : pass ? "Validation Passed" : v?.status === "FAIL" ? "Validation Needs Action" : "Validation Pending"}</h2></div>
+          ${badge(pass ? "PASS" : v?.status === "FAIL" ? "FAIL" : "Pending", pass ? "success" : v?.status === "FAIL" ? "error" : "warning")}
         </div>
+
         ${state.busy
           ? processingPanel("Validation")
           : `<div class="report-metrics">
@@ -2121,7 +2130,7 @@ function validationMain() {
                 ["Embedded Rasters", v?.embedded_rasters],
                 ["Vector Paths", v?.vector_paths ?? v?.path_count],
                 ["Editable Objects", v?.editable_objects],
-                ["Geometry Integrity", v?.geometry_integrity],
+                ["Resolution Independent", v?.resolution_independent === true ? "YES" : v ? "NO" : undefined],
               ]
                 .map(
                   ([key, value]) =>
@@ -2133,14 +2142,30 @@ function validationMain() {
               <span>Illustrator Compatibility</span>
               ${badge(v?.illustrator_compatibility || "Not validated", v?.illustrator_compatibility === "PASS" ? "success" : v?.illustrator_compatibility ? "warning" : "")}
             </div>
-            <p class="small muted">${escape(v?.compatibility_scope || "Static compatibility is reported by the engine; Adobe Illustrator application acceptance is not claimed.")}</p>
+            <p class="small muted">${escape(v?.vector_output_policy || "True vector outputs are resolution-independent. DPI applies only to PNG proof export.")}</p>
             ${btn("View Validation Report", "report", "quiet full-width", !v)}
-            ${!pass && v
-              ? `<div class="validation-recovery">
-                  <p class="note warning">Download remains blocked until deterministic validation passes.</p>
-                  ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+
+            ${failed.length
+              ? `<div class="validation-recovery stack">
+                  <p class="note warning">One or more selected parts failed. Fix/review them, or exclude a failed part and continue with the remaining selection.</p>
+                  ${failed.map((item) => {
+                    const pp = state.project?.parts?.find((part) => part.part_id === item.part_id);
+                    return `<div class="row between validation-failed-row">
+                      <span><strong>${escape(pp?.name || item.part_type || "Failed part")}</strong><small>${escape(item.message || item.error_code || "Validation failed")}</small></span>
+                      <span class="row">
+                        ${btn("Review / Fix", "review-failed-part", "quiet", false, `data-id="${item.part_id}"`)}
+                        ${btn("Exclude & Continue", "exclude-failed", "primary", false, `data-id="${item.part_id}"`)}
+                      </span>
+                    </div>`;
+                  }).join("")}
                 </div>`
-              : ""}`}
+              : !pass && v
+                ? `<div class="validation-recovery">
+                    <p class="note warning">Export remains blocked until the selected production set passes validation.</p>
+                    ${btn("Open Error Assistant", "assistant-toggle", "primary")}
+                  </div>`
+                : ""}
+            ${pass ? '<p class="note success">Validation passed. ReVector automatically continues to Export.</p>' : ""}`}
       </section>
     </div>
   </main>`;
@@ -2173,27 +2198,34 @@ function formatSupport(format) {
 
 function downloadMain() {
   const p = state.project;
-  const selectedCount = state.selectedExports.size;
+  const validatedIds = (p?.validation?.parts || [])
+    .filter((item) => item.status === "PASS")
+    .map((item) => item.part_id);
+  const validatedSet = new Set(validatedIds);
+  const selectedCount = validatedIds.filter((id) => state.selectedExports.has(id)).length;
+  const allValidatedSelected = validatedIds.length > 0 && validatedIds.every((id) => state.selectedExports.has(id));
+
   return `<main class="main-column download-main">
     <section class="card stack">
       <div class="row between">
         <div>
-          <div class="section-kicker">Validated Individual Parts</div>
-          <h2>Download</h2>
-          <p class="small muted">ReVector exports parts only. It does not expose an assembled or master production pattern.</p>
+          <div class="section-kicker">Validated Selected Parts</div>
+          <h2>Export</h2>
+          <p class="small muted">Only parts from the passing validation set can be exported. SVG/PDF/EPS remain resolution-independent vector outputs.</p>
         </div>
-        ${btn(selectedCount === p.parts.length ? "Deselect All" : "Select All", "select-all", "quiet")}
+        ${btn(allValidatedSelected ? "Deselect All" : "Select All Validated", "select-all", "quiet", !validatedIds.length)}
       </div>
       <div class="download-parts">
         ${p.parts
+          .filter((pp) => validatedSet.has(pp.part_id))
           .map((pp) => {
             const report = partValidation(pp);
-            const validated = ready() && report?.status === "PASS";
-            return `<label class="download-part ${state.selectedExports.has(pp.part_id) ? "selected" : ""}">
-              <input type="checkbox" name="export-part" value="${pp.part_id}" ${state.selectedExports.has(pp.part_id) ? "checked" : ""}>
+            const checked = state.selectedExports.has(pp.part_id);
+            return `<label class="download-part ${checked ? "selected" : ""}">
+              <input type="checkbox" data-action="toggle-production-part" data-id="${pp.part_id}" name="export-part" value="${pp.part_id}" ${checked ? "checked" : ""}>
               <div class="download-thumb">${picture(pp.corrected_crop, pp.name)}</div>
               <span><strong>${escape(pp.name)}</strong><small>${escape(dimensions(pp))}</small></span>
-              ${validated ? badge("Validated", "success") : badge("Validation Required", "warning")}
+              ${report?.status === "PASS" ? badge("Validated", "success") : badge("Validation Required", "warning")}
             </label>`;
           })
           .join("")}
@@ -2202,8 +2234,8 @@ function downloadMain() {
 
     <section class="card stack">
       <div>
-        <h2>Export Formats</h2>
-        <p class="small muted">SVG/EPS/PDF preserve vector geometry. PNG is generated as a 300 DPI print proof at the confirmed physical part size. Native Adobe .AI is not generated or renamed from another format.</p>
+        <h2>Production Formats</h2>
+        <p class="small muted">EPS targets EPSF 3.0 / PostScript Level 2 / CMYK. PDF is CMYK vector handoff. SVG is the editable resolution-independent source. PNG is an optional 300 DPI raster proof at the physical part size.</p>
       </div>
       <div class="formats export-formats">
         ${["svg", "eps", "pdf", "png", "ai"]
@@ -2221,14 +2253,14 @@ function downloadMain() {
 
     <section class="card production-pack-card">
       <div class="pack-copy">
-        <div class="section-kicker">Production Handoff</div>
+        <div class="section-kicker">Client Production Handoff</div>
         <h2>Production Pack</h2>
-        <p class="muted">ZIP may contain selected individual vector formats, individual previews, palette, project metadata, validation report and Illustrator handoff information. No assembled/master pattern is included.</p>
-        <p class="small muted">${selectedCount} selected part${selectedCount === 1 ? "" : "s"} - ${[...state.downloadFormats].map((f) => f.toUpperCase()).join(", ")}</p>
+        <p class="muted">Front/Back Body are locked to 558.8 × 787.4 mm (22 × 31 in). The pack may include selected vector formats, previews, palette, metadata, validation report and handoff notes.</p>
+        <p class="small muted">${selectedCount} validated selected part${selectedCount === 1 ? "" : "s"} • ${[...state.downloadFormats].map((f) => f.toUpperCase()).join(", ")}</p>
       </div>
       <div class="download-primary-actions">
         ${btn(icon("download") + " Download Selected Parts", "download-selected", "primary download-primary", !ready() || !selectedCount)}
-        ${btn(icon("download") + " Download Production Pack", "download-pack", "primary download-primary", !ready())}
+        ${btn(icon("download") + " Download Production Pack", "download-pack", "primary download-primary", !ready() || !selectedCount)}
       </div>
     </section>
 
