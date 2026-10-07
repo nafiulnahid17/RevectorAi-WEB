@@ -2092,6 +2092,12 @@ function partValidation(pp) {
 function validationMain() {
   const v = state.project?.validation;
   const pass = ready();
+  const currentIds =
+    v?.selected_part_ids ||
+    state.project?.ai_metadata?.review?.selected_part_ids ||
+    [...state.selectedProduction];
+  const currentSet = new Set(currentIds || []);
+  const currentParts = (state.project?.parts || []).filter((pp) => currentSet.has(pp.part_id));
   return `<main class="main-column validation-main">
     <div class="validation-split">
       <section class="card stack">
@@ -2100,7 +2106,7 @@ function validationMain() {
           <h2>Vector Output</h2>
         </div>
         <div class="validation-parts">
-          ${(state.project?.parts || [])
+          ${currentParts
             .map((pp) => {
               const report = partValidation(pp);
               return `<button data-action="select-part" data-id="${pp.part_id}" class="validation-part ${state.selected === pp.part_id ? "active" : ""}">
