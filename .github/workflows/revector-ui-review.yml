@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nafiulnahid17/RevectorAI-Tool
-          ref: b8545074abacdac91d8d92369fbe0a7cd8b5ace4
+          ref: f27a0d4b66c6b222dde0ad6131c61cfb048ce9b7
           path: engine
           persist-credentials: false
       - uses: actions/setup-node@v4
