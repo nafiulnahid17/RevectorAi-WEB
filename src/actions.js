@@ -132,7 +132,7 @@ async function upload(file) {
     await pollJob(preparationJob);
     await loadCapabilities();
     state.step = 2;
-    toast("Artwork is ready for the eight-part review.");
+    toast("Artwork is ready for dynamic part review and selective vectorization.");
   });
 }
 
@@ -876,9 +876,7 @@ async function handle(action, target) {
       break;
     case "select-all": {
       const validatedIds = state.project.validation?.selected_part_ids || [];
-      const available = validatedIds.length
-        ? validatedIds
-        : state.project.parts.map((item) => item.part_id);
+      const available = validatedIds;
       state.selectedExports =
         state.selectedExports.size === available.length
           ? new Set()
